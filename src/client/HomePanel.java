@@ -11,8 +11,7 @@ import java.net.Socket;
 // 서버 접속 패널 (IP, 포트 입력)
 public class HomePanel extends JPanel {
     private GameLauncher launcher; 
-    private JTextField ipField;
-    private JTextField portField;
+    private JTextField roomNumberField;
     private JButton connectButton;
     private JLabel statusLabel;
     private JButton backButton;
@@ -58,29 +57,17 @@ public class HomePanel extends JPanel {
         centerPanel.add(Box.createRigidArea(new Dimension(0, 20)));
         
         // 서버 IP
-        JPanel ipPanel = new JPanel(new BorderLayout(5, 5));
-        ipPanel.setOpaque(false);
-        ipPanel.setMaximumSize(new Dimension(400, 60));
-        JLabel ipLabel = new JLabel("서버 IP:");
-        ipLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
-        ipField = new JTextField("127.0.0.1");
-        ipField.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
-        ipPanel.add(ipLabel, BorderLayout.NORTH);
-        ipPanel.add(ipField, BorderLayout.CENTER);
-        centerPanel.add(ipPanel);
+        JPanel roomNumberPanel = new JPanel(new BorderLayout(5, 5));
+        roomNumberPanel.setOpaque(false);
+        roomNumberPanel.setMaximumSize(new Dimension(400, 90));
+        JLabel roomNumberLabel = new JLabel("방 번호:");
+        roomNumberLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+        roomNumberField = new JTextField("001");
+        roomNumberField.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
+        roomNumberPanel.add(roomNumberLabel, BorderLayout.NORTH);
+        roomNumberPanel.add(roomNumberField, BorderLayout.CENTER);
+        centerPanel.add(roomNumberPanel);
         centerPanel.add(Box.createRigidArea(new Dimension(0, 15)));
-        
-        // 포트 번호
-        JPanel portPanel = new JPanel(new BorderLayout(5, 5));
-        portPanel.setOpaque(false);
-        portPanel.setMaximumSize(new Dimension(400, 60));
-        JLabel portLabel = new JLabel("포트 번호:");
-        portLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
-        portField = new JTextField("9999");
-        portField.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
-        portPanel.add(portLabel, BorderLayout.NORTH);
-        portPanel.add(portField, BorderLayout.CENTER);
-        centerPanel.add(portPanel);
         
         add(centerPanel, BorderLayout.CENTER);
         
@@ -110,8 +97,7 @@ public class HomePanel extends JPanel {
         
         // 리스너
         connectButton.addActionListener(e -> connectToServer());
-        ipField.addActionListener(e -> connectToServer());
-        portField.addActionListener(e -> connectToServer());
+        roomNumberField.addActionListener(e -> connectToServer());
     }
     
     // 사용자 정보 업데이트 (패널이 표시될 때 호출)
@@ -132,7 +118,7 @@ public class HomePanel extends JPanel {
     }
     
     private void connectToServer() {
-        String host = ipField.getText().trim();
+        String roomNumber = roomNumberField.getText().trim();
         UserData userData = UserData.getInstance();
         
         if (userData == null || userData.getNickname() == null) {
@@ -142,25 +128,19 @@ public class HomePanel extends JPanel {
         }
         
         String name = userData.getNickname();
-        int port;
         
-        if (host.isEmpty()) {
-            statusLabel.setText("오류: 서버 IP를 입력하세요.");
-            statusLabel.setForeground(Color.RED);
-            return;
-        }
+        String host = "127.0.0.1";
+        int port = 9999;
         
-        try {
-            port = Integer.parseInt(portField.getText().trim());
-        } catch (NumberFormatException ex) {
-            statusLabel.setText("오류: 포트 번호는 숫자여야 합니다.");
+        if (roomNumber.isEmpty()) {
+            statusLabel.setText("오류: 방 번호를 입력하세요.");
             statusLabel.setForeground(Color.RED);
             return;
         }
         
         connectButton.setEnabled(false);
         connectButton.setText("접속 중...");
-        statusLabel.setText(host + ":" + port + "에 연결 중...");
+        statusLabel.setText(roomNumber + " 방에 연결 중...");
         statusLabel.setForeground(Color.BLACK);
         
         SwingWorker<Socket, Void> worker = new SwingWorker<Socket, Void>() {
@@ -176,7 +156,7 @@ public class HomePanel extends JPanel {
                     ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
                     ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
                     
-                    launcher.switchToLobby(socket, out, in, name);
+                    launcher.switchToLobby(socket, out, in, name, roomNumber);
                 } catch (Exception ex) {
                     statusLabel.setText("오류: 서버 연결 실패 - " + ex.getMessage());
                     statusLabel.setForeground(Color.RED);

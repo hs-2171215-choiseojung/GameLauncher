@@ -44,6 +44,7 @@ public class GamePacket implements Serializable {
     private boolean isReady; // READY_STATUS 용
     private String difficulty; // SETTINGS_UPDATE, START_GAME_REQUEST 용
     private String gameMode;   // SETTINGS_UPDATE, START_GAME_REQUEST 용
+    private String roomNumber; // JOIN 시 사용
     
     private String hostName; // LOBBY_UPDATE 용
     private Map<String, Boolean> playerReadyStatus; // LOBBY_UPDATE 용
@@ -51,10 +52,10 @@ public class GamePacket implements Serializable {
     // --- 생성자 ---
 
     // 1. JOIN (접속)
-    public GamePacket(Type type, String sender, String difficulty, boolean isJoin) {
+    public GamePacket(Type type, String sender, String roomNumber, boolean isJoin) {
         this.type = type;
         this.sender = sender;
-        this.message = difficulty; // JOIN 시에는 난이도 대신 "LOBBY" 문자열
+        this.message = roomNumber;
     }
 
     // 2. CLICK (정답 클릭)
@@ -138,4 +139,5 @@ public class GamePacket implements Serializable {
     public String getGameMode() { return gameMode; }
     public String getHostName() { return hostName; }
     public Map<String, Boolean> getPlayerReadyStatus() { return playerReadyStatus; }
+    public String getRoomNumber() { return roomNumber; }
 }

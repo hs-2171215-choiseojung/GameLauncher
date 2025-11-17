@@ -13,6 +13,7 @@ public class WaitingRoom extends JPanel {
     private GameLauncher launcher;
     private ObjectOutputStream out;
     private String playerName;
+    private String roomNumber;
     
     // UI 컴포넌트
     private JTextArea chatArea;
@@ -50,15 +51,16 @@ public class WaitingRoom extends JPanel {
         sendButton.addActionListener(sendChatAction);
     }
     
-    public void setConnection(ObjectOutputStream out, String playerName) {
+    public void setConnection(ObjectOutputStream out, String playerName, String roomNumber) {
         this.out = out;
         this.playerName = playerName;
+        this.roomNumber = roomNumber;
         infoPanel.setPlayerName(playerName);
         
         GamePacket join = new GamePacket(
             GamePacket.Type.JOIN,
             playerName,
-            "LOBBY",
+            roomNumber,
             true
         );
         launcher.sendPacket(join);

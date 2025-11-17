@@ -19,6 +19,7 @@ public class GameLauncher extends JFrame {
     private ObjectInputStream in;
     private String playerName;
     private String selectedDifficulty; 
+    private String roomNumber;
 
     // --- UI 관련 ---
     private CardLayout cardLayout;
@@ -186,13 +187,14 @@ public class GameLauncher extends JFrame {
     }
 
     // 대기방(Lobby) 카드로 전환
-    public void switchToLobby(Socket socket, ObjectOutputStream out, ObjectInputStream in, String playerName) {
+    public void switchToLobby(Socket socket, ObjectOutputStream out, ObjectInputStream in, String playerName, String roomNumber) {
         this.socket = socket;
         this.out = out;
         this.in = in;
-        this.playerName = playerName; 
+        this.playerName = playerName;
+        this.roomNumber = roomNumber;
         
-        waitingRoom.setConnection(out, playerName);
+        waitingRoom.setConnection(out, playerName, roomNumber);
         
         // 서버 리스너 스레드 시작
         Thread listenerThread = new Thread(this::listenFromServer);
