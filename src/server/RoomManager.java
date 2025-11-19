@@ -4,6 +4,7 @@ import model.GamePacket;
 import server.LobbyServer.ClientHandler; 
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -12,7 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RoomManager {
 
     public final String roomName;
-    private final GameLogic gameLogic; 
+    private final GameLogic gameLogic;
+    private final LobbyServer lobbyServer;
 
     private final Map<String, ClientHandler> clients = new ConcurrentHashMap<>();
     private final Map<String, Boolean> playerReadyStatus = new ConcurrentHashMap<>();
@@ -24,9 +26,10 @@ public class RoomManager {
     private String currentDifficulty = "쉬움";
     private String currentGameMode = "협동";
 
-    public RoomManager(String roomName, GameLogic gameLogic) {
+    public RoomManager(String roomName, GameLogic gameLogic, LobbyServer lobbyServer) {
         this.roomName = roomName;
-        this.gameLogic = gameLogic; 
+        this.gameLogic = gameLogic;
+        this.lobbyServer = lobbyServer;
         System.out.println("[RoomManager " + roomName + "] 생성됨.");
     }
 
@@ -147,6 +150,11 @@ public class RoomManager {
                         currentRound = 1;
                         gameLogic.loadRound(currentDifficulty, currentRound);
                         gameState = "IN_GAME";
+                        
+                        Map<String, Integer> indexMap = new HashMap<>();
+                        for (String pName : clients.keySet()) {
+                            indexMap.put(pName, lobbyServer.getJoinOrderIndex(pName));
+                        }
 
                         System.out.println("[RoomManager " + roomName + "] " + currentDifficulty + "/" + currentGameMode + " 모드로 게임을 시작합니다.");
 
@@ -154,7 +162,9 @@ public class RoomManager {
                             currentRound,
                             gameLogic.getImagePath(currentDifficulty, currentRound),
                             gameLogic.getOriginalAnswers(currentDifficulty, currentRound),
-                            gameLogic.getOriginalDimension(currentDifficulty, currentRound)
+                            gameLogic.getOriginalDimension(currentDifficulty, currentRound),
+                            indexMap, 
+                            currentGameMode
                         ));
 
                         scores.clear();
@@ -203,6 +213,9 @@ public class RoomManager {
                     System.out.println("[인게임 채팅 " + roomName + "] " + packet.getSender() + ": " + packet.getMessage());
                     broadcast(packet);
                     break;
+                case MOUSE_MOVE:
+                    broadcast(packet);
+                    break;
                  default:
                     System.out.println("[RoomManager " + roomName + "] 인게임 상태에서 잘못된 패킷 수신: " + packet.getType());
              }
@@ -219,11 +232,19 @@ public class RoomManager {
                 public void run() {
                     currentRound++;
                     gameLogic.loadRound(difficulty, currentRound);
+                    
+                    Map<String, Integer> indexMap = new HashMap<>();
+                    for (String pName : clients.keySet()) {
+                        indexMap.put(pName, lobbyServer.getJoinOrderIndex(pName));
+                    }
+                    
                     broadcast(new GamePacket(GamePacket.Type.ROUND_START,
                         currentRound,
                         gameLogic.getImagePath(difficulty, currentRound),
                         gameLogic.getOriginalAnswers(difficulty, currentRound),
-                        gameLogic.getOriginalDimension(difficulty, currentRound)
+                        gameLogic.getOriginalDimension(difficulty, currentRound),
+                        indexMap,
+                        currentGameMode
                     ));
                     System.out.println("[RoomManager " + roomName + "] 라운드 " + currentRound + " 시작");
                 }

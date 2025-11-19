@@ -3,15 +3,21 @@ package client;
 import model.GamePacket;
 import model.UserData;
 import javax.swing.*;
+
+import client.SinglePlayerGUI.GameBoardPanel.GameMark;
+
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Point2D;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 // 실제 '게임 화면'을 담당, GameLauncher에 의해 실행됨.
 public class HiddenObjectClientGUI extends JFrame {
@@ -37,6 +43,15 @@ public class HiddenObjectClientGUI extends JFrame {
     private int timeLeft = 120;
     private Timer swingTimer;
     private boolean isGameActive = false;
+    
+    private String gameMode;
+    private int playerIndex;
+    private Map<String, Integer> playerIndexMap;
+    private Image[] cursorImages;
+    private Image singleCursorImage;
+    private Map<String, Point2D.Double> otherPlayerCursor = new HashMap<>();
+
+    private Point myMousePoint = new Point(-100, -100);
 
     public HiddenObjectClientGUI(Socket socket, ObjectInputStream in, ObjectOutputStream out, 
                                  String playerName, String difficulty, GamePacket roundStartPacket,
@@ -47,6 +62,12 @@ public class HiddenObjectClientGUI extends JFrame {
         this.playerName = playerName;
         this.difficulty = difficulty;
         this.launcher = launcher;
+        
+       this.playerIndexMap = roundStartPacket.getPlayerIndexMap();
+       this.gameMode = roundStartPacket.getGameMode();
+       this.playerIndex = playerIndexMap.getOrDefault(playerName, 0);
+       
+       loadCursorImages();
 
         setTitle("숨은 그림 찾기 (플레이어: " + playerName + ")");
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -60,6 +81,7 @@ public class HiddenObjectClientGUI extends JFrame {
         setLayout(new BorderLayout());
 
         buildUI();
+        setLocalCursor();
         setupKeyBindings();
         
         // 리스너 스레드 즉시 시작
@@ -73,6 +95,28 @@ public class HiddenObjectClientGUI extends JFrame {
         pack(); 
         setResizable(false);
         setVisible(true);
+    }
+    
+    private void loadCursorImages() {
+        cursorImages = new Image[5];
+        Toolkit tk = Toolkit.getDefaultToolkit();
+        try {
+            for (int i = 0; i < 5; i++) {
+                cursorImages[i] = tk.getImage("images/mouse" + (i + 1) + ".png");
+            }
+            singleCursorImage = tk.getImage("images/singleMouse.png");
+        } catch (Exception e) {
+            System.out.println("커서 이미지 로드 실패: " + e.getMessage());
+        }
+    }
+    
+    private void setLocalCursor() {
+    	if (gameBoardPanel == null) return;
+        
+        Toolkit tk = Toolkit.getDefaultToolkit();
+        Image transparentImage = new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        Cursor invisibleCursor = tk.createCustomCursor(transparentImage, new Point(0, 0), "InvisibleCursor");
+        gameBoardPanel.setCursor(invisibleCursor);
     }
 
     // UI 구성
@@ -276,6 +320,9 @@ public class HiddenObjectClientGUI extends JFrame {
                 List<Rectangle> originalAnswers = p.getOriginalAnswers();
                 Dimension originalDimension = p.getOriginalDimension();
                 
+                this.playerIndexMap = p.getPlayerIndexMap();
+                this.playerIndex = playerIndexMap.getOrDefault(playerName, 0);
+                
                 if (imagePath != null && !imagePath.isEmpty() && originalAnswers != null && originalDimension != null) {
                     gameBoardPanel.setRoundData(imagePath, originalAnswers, originalDimension);
                     appendStatus("[시스템] 라운드 " + p.getRound() + " 시작!\n");
@@ -286,10 +333,15 @@ public class HiddenObjectClientGUI extends JFrame {
                 
                 gameBoardPanel.clearMarks();
                 startCountdownTimer(120);
+                otherPlayerCursor.clear();
                 break;
-
+            case MOUSE_MOVE:
+                if (p.getSender().equals(playerName)) return;
+                otherPlayerCursor.put(p.getSender(), new Point2D.Double(p.getX(), p.getY()));
+                gameBoardPanel.repaint();
+                break;
             case RESULT:
-                gameBoardPanel.addMark(p.getAnswerIndex(), p.isCorrect());
+                gameBoardPanel.addMark(p.getAnswerIndex(), p.isCorrect(), p.getSender());
                 if (p.getMessage() != null) {
                     appendStatus(p.getSender() + ": " + p.getMessage() + "\n");
                 }
@@ -401,6 +453,14 @@ public class HiddenObjectClientGUI extends JFrame {
         private final List<GameMark> marks = new ArrayList<>();
         private static final int RADIUS = 20; 
         
+        private final Color[] PLAYER_COLORS = {
+                Color.BLUE,   // 1p (0번)
+                Color.RED,    // 2p (1번)
+                Color.GREEN,  // 3p (2번)
+                Color.YELLOW, // 4p (3번)
+                Color.ORANGE  // 5p (4번)
+        };
+        
         public GameBoardPanel() {
             backgroundImage = null; 
             foundStatus = new boolean[0];
@@ -411,6 +471,9 @@ public class HiddenObjectClientGUI extends JFrame {
                     if (!isGameActive || timeLeft <= 0 || backgroundImage == null || originalDimension == null) {
                         return;
                     }
+                    
+                    myMousePoint = e.getPoint();
+                    repaint();
                     
                     int panelW = getWidth();
                     int panelH = getHeight();
@@ -425,6 +488,14 @@ public class HiddenObjectClientGUI extends JFrame {
                     
                     double originalX = (e.getX() - offsetX) / scale;
                     double originalY = (e.getY() - offsetY) / scale;
+                    
+                    /*sendPacket(new GamePacket(
+                            GamePacket.Type.MOUSE_MOVE, 
+                            playerName, 
+                            playerIndex, 
+                            originalX, 
+                            originalY
+                        ));*/
 
                     int foundIndex = -1;
                     for (int i = 0; i < originalAnswers.size(); i++) {
@@ -439,9 +510,46 @@ public class HiddenObjectClientGUI extends JFrame {
                         sendPacket(new GamePacket(GamePacket.Type.CLICK, playerName, foundIndex));
                     } else {
                         System.out.println("클라이언트: 오답 클릭 (" + e.getX() + ", " + e.getY() + ")");
-                        marks.add(new GameMark(new Point((int) originalX, (int) originalY), false));
+                        marks.add(new GameMark(new Point((int) originalX, (int) originalY), false, playerIndex));
                         repaint();
                     }
+                }
+            });
+            
+            addMouseMotionListener(new MouseMotionAdapter() {
+                @Override
+                public void mouseMoved(MouseEvent e) {
+                	myMousePoint = e.getPoint();
+                    repaint();
+                    
+                    if (!isGameActive || backgroundImage == null || originalDimension == null) return;
+
+                    int panelW = getWidth();
+                    int panelH = getHeight();
+                    int imgW = originalDimension.width;
+                    int imgH = originalDimension.height;
+
+                    double scale = Math.min((double) panelW / imgW, (double) panelH / imgH);
+                    int drawW = (int) (imgW * scale);
+                    int drawH = (int) (imgH * scale);
+                    int offsetX = (panelW - drawW) / 2;
+                    int offsetY = (panelH - drawH) / 2;
+
+                    double originalX = (e.getX() - offsetX) / scale;
+                    double originalY = (e.getY() - offsetY) / scale;
+
+                    sendPacket(new GamePacket(
+                        GamePacket.Type.MOUSE_MOVE, 
+                        playerName, 
+                        playerIndex, 
+                        originalX, 
+                        originalY
+                    ));
+                }
+                @Override
+                public void mouseDragged(MouseEvent e) {
+                     myMousePoint = e.getPoint();
+                     repaint();
                 }
             });
         }
@@ -476,7 +584,7 @@ public class HiddenObjectClientGUI extends JFrame {
             repaint();
         }
         
-        public void addMark(int answerIndex, boolean correct) {
+        public void addMark(int answerIndex, boolean correct, String senderName) {
             if (answerIndex < 0 || answerIndex >= originalAnswers.size()) {
                 System.out.println("클라이언트: 서버로부터 잘못된 RESULT 인덱스 수신: " + answerIndex);
                 return;
@@ -485,7 +593,9 @@ public class HiddenObjectClientGUI extends JFrame {
             Rectangle originalRect = originalAnswers.get(answerIndex);
             Point center = new Point(originalRect.x + originalRect.width / 2, originalRect.y + originalRect.height / 2);
             
-            marks.add(new GameMark(center, correct));
+            int correctPlayerIdx = playerIndexMap.getOrDefault(senderName, 0);
+            
+            marks.add(new GameMark(center, correct, correctPlayerIdx));
             
             if (correct) {
                 foundStatus[answerIndex] = true;
@@ -504,20 +614,23 @@ public class HiddenObjectClientGUI extends JFrame {
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON); 
-            if (backgroundImage != null) {
-                int panelW = getWidth();
-                int panelH = getHeight();
-                int imgW = originalDimension.width;
-                int imgH = originalDimension.height;
-
-                double scale = Math.min((double) panelW / imgW, (double) panelH / imgH);
-
-                int drawW = (int) (imgW * scale);
-                int drawH = (int) (imgH * scale);
-
-                int offsetX = (panelW - drawW) / 2;
-                int offsetY = (panelH - drawH) / 2;
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            
+            int panelW = getWidth();
+            int panelH = getHeight();
+            double scale = 1.0;
+            int drawW = 0, drawH = 0;
+            int offsetX = 0, offsetY = 0;
+            int imgW = 1, imgH = 1;
+            
+            if (backgroundImage != null && originalDimension != null) {
+                imgW = originalDimension.width;
+                imgH = originalDimension.height;
+                scale = Math.min((double) panelW / imgW, (double) panelH / imgH);
+                drawW = (int) (imgW * scale);
+                drawH = (int) (imgH * scale);
+                offsetX = (panelW - drawW) / 2;
+                offsetY = (panelH - drawH) / 2;
 
                 g2.drawImage(backgroundImage, offsetX, offsetY, drawW, drawH, this);
 
@@ -526,34 +639,67 @@ public class HiddenObjectClientGUI extends JFrame {
                     int drawY = (int) (offsetY + m.p.y * scale);
                     
                     if (m.correct) {
-                         g2.setColor(new Color(0, 255, 0, 180));
-                         g2.setStroke(new BasicStroke(3));
-                         g2.draw(new Ellipse2D.Double(
-                                 drawX - RADIUS, drawY - RADIUS,
-                                 RADIUS * 2, RADIUS * 2
-                         ));
+                    	if ("경쟁".equals(gameMode)) {
+                            int colorIdx = Math.max(0, Math.min(m.correctPlayer, 4)); // 0~4 범위 제한
+                            g2.setColor(PLAYER_COLORS[colorIdx]);
+                        } else {
+                            g2.setColor(new Color(0, 255, 0, 180)); 
+                        }
+                        
+                        g2.setStroke(new BasicStroke(3));
+                        g2.draw(new Ellipse2D.Double(
+                                drawX - RADIUS, drawY - RADIUS,
+                                RADIUS * 2, RADIUS * 2
+                        ));
                     } else {
                         g2.setColor(Color.RED);
                         g2.setFont(new Font("맑은 고딕", Font.BOLD, 28));
                         g2.drawString("X", drawX - 10, drawY + 10);
                     }
                 }
-            } else {
-                g2.setColor(Color.LIGHT_GRAY);
-                g2.fillRect(0, 0, getWidth(), getHeight());
-                g2.setColor(Color.BLACK);
-                g2.setFont(new Font("맑은 고딕", Font.BOLD, 20));
-                g2.drawString("서버에서 라운드 시작 대기 중...", getWidth() / 2 - 120, getHeight() / 2);
+            
+                if ("협동".equals(gameMode) && playerIndexMap.size() > 1) {
+                    for (Map.Entry<String, Point2D.Double> entry : otherPlayerCursor.entrySet()) {
+                        String otherName = entry.getKey();
+                        Point2D.Double p = entry.getValue(); 
+                        
+                        int drawX = (int) (offsetX + p.x * scale);
+                        int drawY = (int) (offsetY + p.y * scale);
+                        
+                        int idx = playerIndexMap.getOrDefault(otherName, 0);
+                        if(idx >= 0 && idx < 5 && cursorImages[idx] != null) {
+                            g2.drawImage(cursorImages[idx], drawX, drawY, 30, 30, this); 
+                            g2.setColor(Color.WHITE);
+                            g2.setFont(new Font("Dialog", Font.BOLD, 10));
+                            g2.drawString(otherName, drawX, drawY); // 다른 사람은 이름 표시
+                        }
+                    }
+                }
+                
+                Image myImg = null;
+                if (playerIndexMap.size() <= 1) {
+                    myImg = singleCursorImage;
+                } else {
+                    int idx = Math.max(0, Math.min(playerIndex, 4));
+                    myImg = cursorImages[idx];
+                }
+
+                if (myImg != null && myMousePoint.x > -50 && myMousePoint.y > -50) {
+                    g2.drawImage(myImg, myMousePoint.x, myMousePoint.y, 30, 30, this);
+                }
             }
         }
         
         class GameMark {
             Point p;
             boolean correct;
-            long expiryTime; 
-            GameMark(Point centerPoint, boolean correct) {
+            long expiryTime;
+            int correctPlayer;
+            
+            GameMark(Point centerPoint, boolean correct, int correctPlayer) {
                 this.p = centerPoint;
                 this.correct = correct;
+                this.correctPlayer = correctPlayer;
                 if (correct) {
                     this.expiryTime = -1; 
                 } else {

@@ -38,6 +38,8 @@ public class SinglePlayerGUI extends JFrame {
     private int foundCount = 0;
     private int totalAnswers = 0;
     private int currentRound = 1; // 현재 라운드 추적
+    
+    private Image singleCursorImage;
 
     public SinglePlayerGUI(Socket socket, ObjectInputStream in, ObjectOutputStream out,
                           String playerName, String difficulty, GamePacket roundStartPacket, GameLauncher launcher) {
@@ -47,6 +49,8 @@ public class SinglePlayerGUI extends JFrame {
         this.playerName = playerName;
         this.difficulty = difficulty;
         this.launcher = launcher;
+        
+        initCustomCursor();
 
         setTitle("숨은 그림 찾기 - 1인 플레이 (플레이어: " + playerName + ")");
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -73,6 +77,18 @@ public class SinglePlayerGUI extends JFrame {
         pack(); 
         setResizable(false);
         setVisible(true);
+    }
+    
+    private void initCustomCursor() {
+        try {
+            singleCursorImage = new ImageIcon("images/singleMouse.png").getImage();
+            Toolkit tk = Toolkit.getDefaultToolkit();
+            Cursor customCursor = tk.createCustomCursor(singleCursorImage, new Point(0, 0), "SingleCursor");
+            this.setCursor(customCursor);
+            
+        } catch (Exception e) {
+            System.out.println("[SinglePlayerGUI] 커서 이미지 로드 실패: " + e.getMessage());
+        }
     }
 
     private void buildUI() {

@@ -7,6 +7,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -38,6 +41,7 @@ public class LobbyServer {
     private String currentDifficulty = "쉬움";
     private String currentGameMode = "협동";
     
+    private final List<String> joinList = new ArrayList<>();
 
     public LobbyServer() {
         System.out.println("[서버] 로비 서버가 시작 준비 중입니다...");
@@ -75,6 +79,12 @@ public class LobbyServer {
             if (listener != null && !listener.isClosed()) listener.close();
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+    
+    public int getJoinOrderIndex(String playerName) {
+        synchronized (joinList) {
+            return joinList.indexOf(playerName);
         }
     }
     
@@ -117,6 +127,12 @@ public class LobbyServer {
                     }
                     clients.put(this.playerName, this);
                     
+                    synchronized (joinList) {
+                        if (!joinList.contains(this.playerName)) {
+                        	joinList.add(this.playerName);
+                        }
+                    }
+                    
                     if (isSinglePlayer) {
                         // 1인 플레이: 즉시 게임 시작
                         String difficulty = joinPacket.getMessage().replace("SINGLE_", "");
@@ -139,7 +155,7 @@ public class LobbyServer {
                         synchronized(activeRooms){
                         	targetRoom = activeRooms.get(roomNumber);
                         	if(targetRoom == null) {
-                        		targetRoom = new RoomManager(roomNumber, gameLogic);
+                        		targetRoom = new RoomManager(roomNumber, gameLogic, LobbyServer.this);
                         		activeRooms.put(roomNumber, targetRoom);
                         	}
                         }
@@ -187,11 +203,17 @@ public class LobbyServer {
         private void startRoundForPlayer(int round) {
             playerCurrentRound = round;
             gameLogic.loadRound(playerDifficulty, round);
+            
+            Map<String, Integer> singleIndexMap = new HashMap<>();
+            singleIndexMap.put(playerName, 0);
+            
             sendPacket(new GamePacket(GamePacket.Type.ROUND_START, 
                 round, 
                 gameLogic.getImagePath(playerDifficulty, round),
                 gameLogic.getOriginalAnswers(playerDifficulty, round),
-                gameLogic.getOriginalDimension(playerDifficulty, round)
+                gameLogic.getOriginalDimension(playerDifficulty, round),
+                singleIndexMap,
+                "협동"
             ));
             System.out.println("[서버] [1인 플레이] " + playerName + " - 라운드 " + round + " 시작");
         }
@@ -229,6 +251,10 @@ public class LobbyServer {
                 			activeRooms.remove(room.roomName);
                 		}
                 	}
+                }
+                
+                synchronized (joinList) {
+                	joinList.remove(playerName);
                 }
             }
             try {

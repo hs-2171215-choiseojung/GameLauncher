@@ -27,7 +27,9 @@ public class GamePacket implements Serializable {
         RESULT,       // [S->C] 클릭 결과
         SCORE,        // [S->C] 점수판
         TIMER_END,    // [S->C] 타이머 종료
-        GAME_OVER     // [S->C] 게임 종료
+        GAME_OVER,     // [S->C] 게임 종료
+        
+        MOUSE_MOVE
     }
 
     // --- 데이터 필드 ---
@@ -48,6 +50,10 @@ public class GamePacket implements Serializable {
     
     private String hostName; // LOBBY_UPDATE 용
     private Map<String, Boolean> playerReadyStatus; // LOBBY_UPDATE 용
+    
+    private int playerIndex;
+    private double x, y;
+    private Map<String, Integer> playerIndexMap;
 
     // --- 생성자 ---
 
@@ -82,13 +88,15 @@ public class GamePacket implements Serializable {
     }
 
     // 5. ROUND_START (라운드 시작)
-    public GamePacket(Type type, int round, String imagePath, List<Rectangle> originalAnswers, Dimension originalDimension) {
+    public GamePacket(Type type, int round, String imagePath, List<Rectangle> originalAnswers, Dimension originalDimension, Map<String, Integer> playerIndexMap, String gameMode) {
         this.type = type;
         this.sender = "SERVER";
         this.round = round;
         this.message = imagePath; 
         this.originalAnswers = originalAnswers;
         this.originalDimension = originalDimension;
+        this.playerIndexMap = playerIndexMap;
+        this.gameMode = gameMode;
     }
     
     public GamePacket(Type type, String message) {
@@ -121,6 +129,15 @@ public class GamePacket implements Serializable {
         this.difficulty = difficulty;
         this.gameMode = gameMode;
     }
+    
+    // 9. MOUSE_MOVE 전송용
+    public GamePacket(Type type, String sender, int playerIndex, double x, double y) {
+        this.type = type;
+        this.sender = sender;
+        this.playerIndex = playerIndex;
+        this.x = x;
+        this.y = y;
+    }
 
 
     // --- Getter 메소드 ---
@@ -140,4 +157,9 @@ public class GamePacket implements Serializable {
     public String getHostName() { return hostName; }
     public Map<String, Boolean> getPlayerReadyStatus() { return playerReadyStatus; }
     public String getRoomNumber() { return roomNumber; }
+    
+    public int getPlayerIndex() { return playerIndex; }
+    public double getX() { return x; }
+    public double getY() { return y; }
+    public Map<String, Integer> getPlayerIndexMap() { return playerIndexMap; }
 }
