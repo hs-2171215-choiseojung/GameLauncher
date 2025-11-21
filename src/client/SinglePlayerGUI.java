@@ -433,6 +433,10 @@ public class SinglePlayerGUI extends JFrame {
                         }
                     }
                     
+                    System.out.println("[클릭 좌표]");
+                    System.out.println("X: " + (int)originalX + ", Y: " + (int)originalY);
+                    System.out.println("new Rectangle(" + (int)originalX + ", " + (int)originalY + ", 40, 40)");
+                    
                     if (foundIndex != -1) {
                         // 서버로 클릭 전송 (라운드 정보 포함)
                         GamePacket clickPacket = new GamePacket(GamePacket.Type.CLICK, playerName, foundIndex);

@@ -1,5 +1,6 @@
 package client;
 
+import model.GamePacket;
 import model.UserData;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -56,7 +57,7 @@ public class HomePanel extends JPanel {
         centerPanel.add(userInfoPanel);
         centerPanel.add(Box.createRigidArea(new Dimension(0, 20)));
         
-        // 서버 IP
+        // 방 번호
         JPanel roomNumberPanel = new JPanel(new BorderLayout(5, 5));
         roomNumberPanel.setOpaque(false);
         roomNumberPanel.setMaximumSize(new Dimension(400, 90));
@@ -77,7 +78,7 @@ public class HomePanel extends JPanel {
         bottomPanel.setOpaque(false);
         bottomPanel.setBorder(new EmptyBorder(0, 20, 10, 20));
         
-        statusLabel = new JLabel("서버 정보를 입력하고 접속하세요.");
+        statusLabel = new JLabel("방 번호를 입력하고 접속하세요.");
         statusLabel.setHorizontalAlignment(SwingConstants.CENTER);
         statusLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
         statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -98,6 +99,18 @@ public class HomePanel extends JPanel {
         // 리스너
         connectButton.addActionListener(e -> connectToServer());
         roomNumberField.addActionListener(e -> connectToServer());
+    }
+    
+    private static class ConnectionContext {
+        Socket socket;
+        ObjectOutputStream out;
+        ObjectInputStream in;
+
+        public ConnectionContext(Socket socket, ObjectOutputStream out, ObjectInputStream in) {
+            this.socket = socket;
+            this.out = out;
+            this.in = in;
+        }
     }
     
     // 사용자 정보 업데이트 (패널이 표시될 때 호출)
@@ -143,22 +156,57 @@ public class HomePanel extends JPanel {
         statusLabel.setText(roomNumber + " 방에 연결 중...");
         statusLabel.setForeground(Color.BLACK);
         
-        SwingWorker<Socket, Void> worker = new SwingWorker<Socket, Void>() {
+        SwingWorker<ConnectionContext, Void> worker = new SwingWorker<ConnectionContext, Void>() {
             @Override
-            protected Socket doInBackground() throws Exception {
-                return new Socket(host, port);
+            protected ConnectionContext doInBackground() throws Exception {
+                // 1. 소켓 연결
+                Socket socket = new Socket(host, port);
+                
+                // 2. 스트림 생성 (순서 중요: Output 먼저)
+                ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+                ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+
+                // 3. [검증 단계] JOIN 패킷을 여기서 먼저 전송하여 입장 가능 여부 확인
+                GamePacket joinPacket = new GamePacket(GamePacket.Type.JOIN, name, roomNumber, true);
+                out.writeObject(joinPacket);
+                out.flush();
+
+                // 4. 서버의 첫 응답(입장 결과) 읽기
+                Object response = in.readObject();
+                if (response instanceof GamePacket) {
+                    GamePacket packet = (GamePacket) response;
+                    
+                    // 서버가 "오류" 메시지를 보냈다면 (방 꽉 참, 이름 중복 등)
+                    if (packet.getType() == GamePacket.Type.MESSAGE && packet.getMessage().startsWith("오류")) {
+                        // 소켓 닫고 예외 발생시켜서 done()의 catch 블록으로 이동
+                        socket.close();
+                        throw new Exception(packet.getMessage()); 
+                    }
+                }
+
+                // 5. 성공 시 컨텍스트 반환
+                return new ConnectionContext(socket, out, in);
             }
             
             @Override
             protected void done() {
                 try {
-                    Socket socket = get();
-                    ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-                    ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+                    ConnectionContext context = get();
                     
-                    launcher.switchToLobby(socket, out, in, name, roomNumber);
+                    // 성공: 로비로 전환
+                    launcher.switchToLobby(context.socket, context.out, context.in, name, roomNumber);
+                    
+                    connectButton.setEnabled(true);
+                    connectButton.setText("접속하기");
+                    statusLabel.setText("방 번호를 입력하고 접속하세요.");
+                    
                 } catch (Exception ex) {
-                    statusLabel.setText("오류: 서버 연결 실패 - " + ex.getMessage());
+                    // 실패: 오류 메시지 표시 (화면 전환 안 함)
+                    String msg = ex.getMessage();
+                    if (ex instanceof java.util.concurrent.ExecutionException) {
+                        msg = ex.getCause().getMessage();
+                    }
+                    statusLabel.setText(msg); // 여기에 "오류: 방이 꽉 찼습니다."가 표시됨
                     statusLabel.setForeground(Color.RED);
                     connectButton.setEnabled(true);
                     connectButton.setText("접속하기");

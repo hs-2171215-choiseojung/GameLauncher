@@ -82,8 +82,19 @@ public class GameLogic {
     private void loadAnswersFor_Easy_2() {
         String key = "쉬움_2";
         List<Rectangle> answers = new ArrayList<>();
-
-        //쉬움 2라운드 정답 좌표 입력 예정 !! 이 부분부터 좌표 추가해야해요!
+        
+        answers.add(new Rectangle(223, 196, 40, 40));
+        answers.add(new Rectangle(443, 313, 40, 40));
+        
+        answers.add(new Rectangle(393, 269, 40, 40));
+        answers.add(new Rectangle(311, 398, 40, 40));
+        answers.add(new Rectangle(255, 426, 40, 40));
+        answers.add(new Rectangle(208, 362, 40, 40));
+        answers.add(new Rectangle(279, 348, 40, 40));
+        
+        answers.add(new Rectangle(79, 323, 40, 40));
+        answers.add(new Rectangle(102, 360, 40, 40));
+        answers.add(new Rectangle(80, 500, 40, 40));
         
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/easy2.jpg"); 
@@ -144,8 +155,25 @@ public class GameLogic {
     private void loadAnswersFor_Hard_1() {
         String key = "어려움_1";
         List<Rectangle> answers = new ArrayList<>();
+        
+        answers.add(new Rectangle(374, 134, 40, 40));
+        answers.add(new Rectangle(449, 90, 40, 40));
+        
+        answers.add(new Rectangle(293, 209, 40, 40));
+        answers.add(new Rectangle(47, 480, 40, 40));
+        answers.add(new Rectangle(83, 377, 40, 40));
+        answers.add(new Rectangle(59, 188, 40, 40));
+        answers.add(new Rectangle(419, 501, 40, 40));
+        
+        answers.add(new Rectangle(448, 505, 40, 40));
+        answers.add(new Rectangle(78, 331, 40, 40));
+        answers.add(new Rectangle(454, 466, 40, 40));
 
-        // 어려움 1라운드 정답 좌표 입력 예정!!
+        answers.add(new Rectangle(443, 329, 40, 40));
+        answers.add(new Rectangle(120, 106, 40, 40));
+        
+        answers.add(new Rectangle(29, 265, 40, 40));
+        
         
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/hard1.jpg");

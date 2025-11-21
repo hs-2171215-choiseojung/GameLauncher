@@ -82,6 +82,9 @@ public class InfoPanel extends JPanel {
             String difficulty = (String) difficultyCombo.getSelectedItem();
             String mode = coopRadio.isSelected() ? "협동" : "경쟁";
             launcher.requestStartGame(difficulty, mode);
+            isReady = false;
+            readyButton.setText("게임 준비");
+            readyButton.setBackground(Color.LIGHT_GRAY);
         });
         
         settingsListener = e -> sendSettingsUpdate();
@@ -117,6 +120,29 @@ public class InfoPanel extends JPanel {
             difficulty, 
             mode
         ));
+    }
+    
+    public void resetUI() {
+        // 1. 준비 상태 초기화
+        isReady = false;
+        isHost = false;
+
+        // 2. 버튼 UI 초기화 (회색, "게임 준비")
+        readyButton.setText("게임 준비");
+        readyButton.setBackground(Color.LIGHT_GRAY);
+        
+        // 3. 버튼 가시성 초기화 (게스트 모드로)
+        readyButton.setVisible(true);
+        startButton.setVisible(false);
+        startButton.setEnabled(false);
+
+        // 4. 입력 컴포넌트 비활성화 (입장 전 상태로)
+        difficultyCombo.setEnabled(false);
+        coopRadio.setEnabled(false);
+        pvpRadio.setEnabled(false);
+
+        // 5. 플레이어 목록 초기화
+        playerListArea.setText("플레이어:\n");
     }
     
     // LOBBY_UPDATE 패킷 수신 시 UI 갱신 (WatingRoom이 호출)

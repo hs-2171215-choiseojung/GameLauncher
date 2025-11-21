@@ -26,17 +26,19 @@ public class MainMenuPanel extends JPanel {
         
         // 중앙: 버튼들
         JPanel buttonPanel = new JPanel();
-        buttonPanel.setLayout(new GridLayout(4, 1, 0, 15));
+        buttonPanel.setLayout(new GridLayout(5, 1, 0, 15));
         buttonPanel.setOpaque(false);
         buttonPanel.setBorder(new EmptyBorder(50, 100, 50, 100));
         
         JButton singlePlayButton = createMenuButton("1인 플레이");
         JButton multiPlayButton = createMenuButton("멀티 플레이");
+        JButton dynamicGameButton = createMenuButton("키보드 플레이(테스트)");
         JButton myPageButton = createMenuButton("마이페이지");
         JButton exitButton = createMenuButton("종료");
         
         buttonPanel.add(singlePlayButton);
         buttonPanel.add(multiPlayButton);
+        buttonPanel.add(dynamicGameButton);
         buttonPanel.add(myPageButton);
         buttonPanel.add(exitButton);
         
@@ -68,6 +70,10 @@ public class MainMenuPanel extends JPanel {
         
         multiPlayButton.addActionListener(e -> {
             launcher.switchToServerInput();
+        });
+        
+        dynamicGameButton.addActionListener(e -> {
+        	launcher.startFlashlightGame();
         });
         
         myPageButton.addActionListener(e -> {

@@ -20,6 +20,8 @@ public class GameLauncher extends JFrame {
     private String playerName;
     private String selectedDifficulty; 
     private String roomNumber;
+    
+    private boolean isDisconnect = false;
 
     // --- UI 관련 ---
     private CardLayout cardLayout;
@@ -42,7 +44,25 @@ public class GameLauncher extends JFrame {
 
     public GameLauncher() {
         setTitle("숨은 그림 찾기");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                if (waitingRoom.isVisible() && socket != null && !socket.isClosed()) {
+                    int choice = JOptionPane.showConfirmDialog(GameLauncher.this, 
+                            "대기방을 나가고 메인 메뉴로 돌아가시겠습니까?", "나가기", 
+                            JOptionPane.YES_NO_OPTION);
+                    
+                    if (choice == JOptionPane.YES_OPTION) {
+                        disconnectAndReturnToMenu(); // 연결 끊고 메인으로
+                    }
+                } else {
+                    System.exit(0);  // 유지
+                }
+            }
+        });
+        
         setSize(500, 600);
 
         cardLayout = new CardLayout();
@@ -208,6 +228,8 @@ public class GameLauncher extends JFrame {
     
     // 서버로부터 패킷 수신 (대기방 전용)
     private void listenFromServer() {
+    	isDisconnect = false;
+    	
         try {
             while (true) {
                 Object obj = in.readObject();
@@ -223,15 +245,17 @@ public class GameLauncher extends JFrame {
                 }
             }
         } catch (Exception e) {
-            if (this.isVisible()) {
-                SwingUtilities.invokeLater(() -> {
-                    JOptionPane.showMessageDialog(this, "서버 연결이 끊어졌습니다: " + e.getMessage());
-                    switchToMainMenu();
-                    homePanel.resetUI();
-                });
-            } else {
-                System.out.println("[GameLauncher] 리스너가 게임 시작으로 인해 정상 종료되었습니다.");
-            }
+        	if (!isDisconnect) {
+        		if (this.isVisible()) {
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(this, "서버 연결이 끊어졌습니다: " + e.getMessage());
+                        switchToMainMenu();
+                        homePanel.resetUI();
+                    });
+                } else {
+                    System.out.println("[GameLauncher] 리스너가 게임 시작으로 인해 정상 종료되었습니다.");
+                }
+        	}
         }
     }
     
@@ -296,6 +320,101 @@ public class GameLauncher extends JFrame {
     // 현재 플레이어 이름 반환
     public String getPlayerName() {
         return playerName;
+    }
+    
+    private void disconnectAndReturnToMenu() {
+    	isDisconnect = true;
+    	
+        try {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        
+        socket = null;
+        out = null;
+        in = null;
+        
+        if (waitingRoom != null) {
+            waitingRoom.resetUI();
+        }
+        
+        switchToMainMenu(); // 화면 전환
+    }
+    
+    public void startFlashlightGame() {
+        UserData userData = UserData.getInstance();
+        this.playerName = (userData != null) ? userData.getNickname() : "Guest";
+        
+        String[] options = {"쉬움", "보통", "어려움"};
+        String difficulty = (String) JOptionPane.showInputDialog(
+            this,
+            "동적 모드 난이도를 선택하세요:",
+            "동적 모드 (손전등)",
+            JOptionPane.QUESTION_MESSAGE,
+            null,
+            options,
+            options[0]
+        );
+
+        if (difficulty == null) return;
+        this.selectedDifficulty = difficulty;
+
+        String host = "127.0.0.1";
+        int port = 9999;
+        
+        SwingWorker<Socket, Void> worker = new SwingWorker<Socket, Void>() {
+            @Override
+            protected Socket doInBackground() throws Exception {
+                return new Socket(host, port);
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    Socket socket = get();
+                    ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+                    ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+                    
+                    GamePacket joinPacket = new GamePacket(
+                        GamePacket.Type.JOIN,
+                        playerName,
+                        "SINGLE_" + difficulty,
+                        true
+                    );
+                    out.writeObject(joinPacket);
+                    out.flush();
+                    
+                    GamePacket roundStartPacket = (GamePacket) in.readObject();
+                    
+                    if (roundStartPacket.getType() == GamePacket.Type.ROUND_START) {
+                        GameLauncher.this.setVisible(false);
+                        
+                        new FlashlightGame(
+                            socket, 
+                            in, 
+                            out, 
+                            playerName, 
+                            difficulty, 
+                            roundStartPacket, 
+                            GameLauncher.this
+                        );
+                    } else {
+                        throw new Exception("서버 응답 오류");
+                    }
+                    
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(GameLauncher.this,
+                        "게임 시작 실패: " + ex.getMessage(),
+                        "오류",
+                        JOptionPane.ERROR_MESSAGE);
+                    ex.printStackTrace();
+                }
+            }
+        };
+        worker.execute();
     }
 
 

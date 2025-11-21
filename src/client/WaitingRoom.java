@@ -57,13 +57,8 @@ public class WaitingRoom extends JPanel {
         this.roomNumber = roomNumber;
         infoPanel.setPlayerName(playerName);
         
-        GamePacket join = new GamePacket(
-            GamePacket.Type.JOIN,
-            playerName,
-            roomNumber,
-            true
-        );
-        launcher.sendPacket(join);
+        chatArea.setText(""); 
+        chatArea.append("=== [" + roomNumber + "] 번 대기방에 입장했습니다 ===\n");
     }
     
     private void sendChat() {
@@ -77,6 +72,15 @@ public class WaitingRoom extends JPanel {
         );
         launcher.sendPacket(chatPacket);
         chatInput.setText("");
+    }
+    
+    public void resetUI() {
+        // 1. 채팅창 클리어
+        chatArea.setText("");
+        chatInput.setText("");
+
+        // 2. 오른쪽 정보 패널(버튼 등) 초기화 호출
+        infoPanel.resetUI();
     }
     
     // GameLauncher가 호출하여 InfoPanel 갱신

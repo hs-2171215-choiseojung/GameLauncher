@@ -199,12 +199,7 @@ public class HiddenObjectClientGUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (!isGameActive) return;
-                GamePacket p = new GamePacket(
-                        GamePacket.Type.MESSAGE,
-                        playerName,
-                        "[힌트 요청]"
-                );
-                sendPacket(p);
+                showHint();
             }
         });
         root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
@@ -309,6 +304,17 @@ public class HiddenObjectClientGUI extends JFrame {
         );
         sendPacket(chatPacket);
         inputField.setText("");
+    }
+    
+    private void showHint() {
+        // 힌트 요청 메시지 전송
+        GamePacket hintPacket = new GamePacket(
+            GamePacket.Type.MESSAGE,
+            playerName,
+            "[힌트 요청]"
+        );
+        sendPacket(hintPacket);
+        appendStatus("[힌트] 힌트를 요청했습니다. (-5점)\n");
     }
     
     // 인게임 패킷 처리
@@ -434,8 +440,14 @@ public class HiddenObjectClientGUI extends JFrame {
                     timerLabel.setForeground(new Color(red, green, 0));
                 }
                 gameBoardPanel.removeExpiredMarks();
+                
                 if (timeLeft <= 0) {
                     ((Timer) e.getSource()).stop();
+                    isGameActive = false;
+                    
+                    // 서버에 타이머 종료 알림
+                    sendPacket(new GamePacket(GamePacket.Type.TIMER_END, "타이머 종료"));
+                    appendStatus("\n[시간 종료!]\n");
                 }
             } else if (!isGameActive) {
                  ((Timer) e.getSource()).stop();
@@ -454,11 +466,11 @@ public class HiddenObjectClientGUI extends JFrame {
         private static final int RADIUS = 20; 
         
         private final Color[] PLAYER_COLORS = {
-                Color.BLUE,   // 1p (0번)
-                Color.RED,    // 2p (1번)
-                Color.GREEN,  // 3p (2번)
-                Color.YELLOW, // 4p (3번)
-                Color.ORANGE  // 5p (4번)
+                Color.BLUE,   // 1p
+                Color.RED,    // 2p
+                Color.GREEN,  // 3p
+                Color.YELLOW, // 4p
+                Color.ORANGE  // 5p
         };
         
         public GameBoardPanel() {
@@ -545,11 +557,6 @@ public class HiddenObjectClientGUI extends JFrame {
                         originalX, 
                         originalY
                     ));
-                }
-                @Override
-                public void mouseDragged(MouseEvent e) {
-                     myMousePoint = e.getPoint();
-                     repaint();
                 }
             });
         }

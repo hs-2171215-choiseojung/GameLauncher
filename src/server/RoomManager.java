@@ -15,6 +15,8 @@ public class RoomManager {
     public final String roomName;
     private final GameLogic gameLogic;
     private final LobbyServer lobbyServer;
+    
+    private static final int MAX_PLAYERS = 5;
 
     private final Map<String, ClientHandler> clients = new ConcurrentHashMap<>();
     private final Map<String, Boolean> playerReadyStatus = new ConcurrentHashMap<>();
@@ -30,7 +32,7 @@ public class RoomManager {
         this.roomName = roomName;
         this.gameLogic = gameLogic;
         this.lobbyServer = lobbyServer;
-        System.out.println("[RoomManager " + roomName + "] 생성됨.");
+        System.out.println("[RoomManager] [" + roomName + "] 생성됨.");
     }
 
     public synchronized boolean addPlayer(ClientHandler handler) {
@@ -38,29 +40,36 @@ public class RoomManager {
 
         if (!gameState.equals("LOBBY")) {
             handler.sendPacket(new GamePacket(GamePacket.Type.MESSAGE, "SERVER",
-                                 "오류: 이미 게임이 시작되었습니다."));
+                                 "이미 게임이 시작되었습니다."));
             return false;
         }
 
         if (clients.containsKey(playerName)) {
             handler.sendPacket(new GamePacket(GamePacket.Type.MESSAGE, "SERVER",
-                                 "오류: '" + playerName + "' 닉네임이 이미 사용 중입니다."));
+                                 "'" + playerName + "' 닉네임이 이미 사용 중입니다."));
             return false;
         }
+        
+
+        if (clients.size() >= MAX_PLAYERS) {
+            handler.sendPacket(new GamePacket(GamePacket.Type.MESSAGE, "SERVER",
+                               "방이 꽉 찼습니다."));
+            return false;
+       }
 
         clients.put(playerName, handler);
 
         if (clients.size() == 1) {
             hostName = playerName;
-            System.out.println("[RoomManager " + roomName + "] " + playerName + " 님이 방장이 되었습니다.");
+            System.out.println("[RoomManager] [" + roomName + "] " + playerName + " 님이 방장이 되었습니다.");
         }
 
         playerReadyStatus.put(playerName, false);
 
-        handler.sendPacket(new GamePacket(GamePacket.Type.MESSAGE, "[서버 " + roomName + "]",
+        handler.sendPacket(new GamePacket(GamePacket.Type.MESSAGE, "[서버] [" + roomName + "]",
                              playerName + " 님 환영합니다!"));
 
-        broadcast(new GamePacket(GamePacket.Type.MESSAGE, "[서버 " + roomName + "]",
+        broadcast(new GamePacket(GamePacket.Type.MESSAGE, "[서버] [" + roomName + "]",
                    playerName + " 님이 들어왔습니다."));
 
         broadcastLobbyUpdate();
@@ -74,15 +83,19 @@ public class RoomManager {
             clients.remove(playerName);
             scores.remove(playerName);
             playerReadyStatus.remove(playerName);
-            System.out.println("[RoomManager " + roomName + "] " + playerName + " 님이 퇴장했습니다.");
+            System.out.println("[RoomManager] [" + roomName + "] " + playerName + " 님이 퇴장했습니다.");
+            broadcast(new GamePacket(GamePacket.Type.MESSAGE, "[RoomManager] [" + roomName + "]",
+                    playerName + " 님이 퇴장했습니다."));
 
             if (playerName.equals(hostName) && clients.size() > 0) {
                 hostName = clients.keySet().iterator().next();
-                System.out.println("[RoomManager " + roomName + "] " + hostName + " 님이 새 방장이 되었습니다.");
+                System.out.println("[RoomManager] [" + roomName + "] " + hostName + " 님이 새 방장이 되었습니다.");
+                broadcast(new GamePacket(GamePacket.Type.MESSAGE, "[RoomManager] [" + roomName + "]",
+                        playerName + " 님이 새 방장이 되었습니다."));
             }
 
             if (clients.isEmpty()) {
-                System.out.println("[RoomManager " + roomName + "] 모든 유저 퇴장. 대기방으로 리셋합니다.");
+                System.out.println("[RoomManager] [" + roomName + "] 모든 유저 퇴장. 대기방으로 리셋합니다.");
                 gameState = "LOBBY";
                 currentRound = 0;
                 hostName = null;
@@ -95,6 +108,24 @@ public class RoomManager {
                 broadcast(new GamePacket(GamePacket.Type.MESSAGE, "SERVER",
                           playerName + " 님이 퇴장했습니다."));
                 broadcast(new GamePacket(GamePacket.Type.SCORE, getScoreboardString()));
+                
+                if (currentGameMode.equals("경쟁") && clients.size() == 1) {
+                    broadcast(new GamePacket(GamePacket.Type.GAME_OVER,
+                              "상대방이 모두 나갔습니다. 게임을 종료합니다. (승리!)"));
+                    
+                    // 상태 초기화 및 대기방으로 복귀
+                    gameState = "LOBBY";
+                    currentRound = 0;
+                    
+                    // 점수 초기화 (선택 사항, 대기방 돌아가면 어차피 초기화됨)
+                    scores.clear();
+                    for (String p : clients.keySet()) {
+                        scores.put(p, 0);
+                        playerReadyStatus.put(p, false); // 준비 상태 해제
+                    }
+                    
+                    broadcastLobbyUpdate();
+                }
             }
         }
         return false; // 아직 방에 사람이 있음을 알림
@@ -105,25 +136,25 @@ public class RoomManager {
         if (!gameState.equals("IN_GAME")) { // 게임 중이 아닐 때
             switch (packet.getType()) {
                 case MESSAGE:
-                    System.out.println("[대기방 채팅 " + roomName + "] " + packet.getSender() + ": " + packet.getMessage());
+                    System.out.println("[대기방 채팅] [" + roomName + "] " + packet.getSender() + ": " + packet.getMessage());
                     broadcast(packet);
                     break;
                 case READY_STATUS:
                     playerReadyStatus.put(handler.getPlayerName(), packet.isReady());
-                    System.out.println("[RoomManager " + roomName + "] " + handler.getPlayerName() + " 준비 상태: " + packet.isReady());
+                    System.out.println("[RoomManager] [" + roomName + "] " + handler.getPlayerName() + " 준비 상태: " + packet.isReady());
                     broadcastLobbyUpdate();
                     break;
                 case SETTINGS_UPDATE:
                     if (handler.getPlayerName().equals(hostName)) {
                         currentDifficulty = packet.getDifficulty();
                         currentGameMode = packet.getGameMode();
-                        System.out.println("[RoomManager " + roomName + "] 방장이 설정을 변경: " + currentDifficulty + "/" + currentGameMode);
+                        System.out.println("[RoomManager] [" + roomName + "] 방장이 설정을 변경: " + currentDifficulty + "/" + currentGameMode);
                         broadcastLobbyUpdate();
                     }
                     break;
                 case START_GAME_REQUEST:
                     if (handler.getPlayerName().equals(hostName)) {
-                        System.out.println("[RoomManager " + roomName + "] " + handler.getPlayerName() + " 님이 게임 시작 요청.");
+                        System.out.println("[RoomManager] [" + roomName + "] " + handler.getPlayerName() + " 님이 게임 시작 요청.");
 
                         boolean allReady = true;
                         for (Map.Entry<String, Boolean> entry : playerReadyStatus.entrySet()) {
@@ -139,7 +170,7 @@ public class RoomManager {
                              return;
                         }
 
-                        if (clients.size() < 1) {
+                        if (clients.size() < 2) {
                              handler.sendPacket(new GamePacket(GamePacket.Type.MESSAGE, "SERVER",
                                                 "오류: 최소 2명 이상이어야 시작할 수 있습니다."));
                              return;
@@ -156,7 +187,7 @@ public class RoomManager {
                             indexMap.put(pName, lobbyServer.getJoinOrderIndex(pName));
                         }
 
-                        System.out.println("[RoomManager " + roomName + "] " + currentDifficulty + "/" + currentGameMode + " 모드로 게임을 시작합니다.");
+                        System.out.println("[RoomManager] [" + roomName + "] " + currentDifficulty + "/" + currentGameMode + " 모드로 게임을 시작합니다.");
 
                         broadcast(new GamePacket(GamePacket.Type.ROUND_START,
                             currentRound,
@@ -176,7 +207,7 @@ public class RoomManager {
                     break;
                 default:
                     if(packet.getType() != GamePacket.Type.TIMER_END && packet.getType() != GamePacket.Type.CLICK) {
-                       System.out.println("[RoomManager " + roomName + "] 대기방 상태에서 잘못된 패킷 수신: " + packet.getType());
+                       System.out.println("[RoomManager] [" + roomName + "] 대기방 상태에서 잘못된 패킷 수신: " + packet.getType());
                     }
             }
         }
@@ -191,6 +222,16 @@ public class RoomManager {
                                             currentRound,
                                             answerIndex
                                             );
+                    if (answerIndex == -1) {
+                        System.out.println("[RoomManager " + roomName + "] [오답] " 
+                                + handler.getPlayerName() + " 클릭 좌표: (" 
+                                + (int)packet.getX() + ", " + (int)packet.getY() + ")");
+                        
+                        // 점수 감점 (선택 사항)
+                        scores.put(handler.getPlayerName(), scores.get(handler.getPlayerName()) - 5);
+                        broadcast(new GamePacket(GamePacket.Type.SCORE, getScoreboardString()));
+                        return;
+                    }
                     String resultMsg;
                     if (isCorrect) {
                         resultMsg = "정답!";
@@ -217,7 +258,7 @@ public class RoomManager {
                     broadcast(packet);
                     break;
                  default:
-                    System.out.println("[RoomManager " + roomName + "] 인게임 상태에서 잘못된 패킷 수신: " + packet.getType());
+                    System.out.println("[RoomManager] [" + roomName + "] 인게임 상태에서 잘못된 패킷 수신: " + packet.getType());
              }
         }
     }
@@ -246,7 +287,7 @@ public class RoomManager {
                         indexMap,
                         currentGameMode
                     ));
-                    System.out.println("[RoomManager " + roomName + "] 라운드 " + currentRound + " 시작");
+                    System.out.println("[RoomManager] [" + roomName + "] 라운드 " + currentRound + " 시작");
                 }
             }, 3000);
         } else {
