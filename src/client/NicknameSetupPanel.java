@@ -119,20 +119,31 @@ public class NicknameSetupPanel extends JPanel {
         String password = new String(passwordField.getPassword());
         
         if (nickname.isEmpty() || password.isEmpty()) {
-            statusLabel.setText("닉네임과 비밀번호를 입력하세요");
-            statusLabel.setForeground(Color.RED);
+            JOptionPane.showMessageDialog(this,
+                "닉네임과 비밀번호를 모두 입력하세요.",
+                "입력 오류",
+                JOptionPane.WARNING_MESSAGE);
             return;
         }
-        
-        if (UserData.login(nickname, password)) {
-            statusLabel.setText("로그인 성공!");
-            statusLabel.setForeground(new Color(34, 139, 34));
-            launcher.switchToMainMenu();
-        } else {
-            statusLabel.setText("닉네임 또는 비밀번호가 일치하지 않습니다");
-            statusLabel.setForeground(Color.RED);
-            passwordField.setText("");
-            passwordField.requestFocus();
+
+        try {
+            if (UserData.login(nickname, password)) {
+                statusLabel.setText("로그인 성공!");
+                statusLabel.setForeground(new Color(34, 139, 34));
+                launcher.switchToMainMenu();
+            } else {
+                JOptionPane.showMessageDialog(this,
+                    "닉네임 또는 비밀번호가 일치하지 않습니다.",
+                    "로그인 실패",
+                    JOptionPane.ERROR_MESSAGE);
+                passwordField.setText("");
+                passwordField.requestFocus();
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this,
+                "로그인 중 오류가 발생했습니다: " + e.getMessage(),
+                "오류",
+                JOptionPane.ERROR_MESSAGE);
         }
     }
     

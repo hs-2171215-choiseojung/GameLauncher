@@ -12,10 +12,8 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-// 1인 플레이 게임 화면 (서버 통신 버전 - 다중 라운드 지원)
 public class SinglePlayerGUI extends JFrame {
 
-    // 통신 관련
     private Socket socket;
     private ObjectOutputStream out;
     private ObjectInputStream in;
@@ -23,21 +21,24 @@ public class SinglePlayerGUI extends JFrame {
     private final String difficulty;
     private GameLauncher launcher;
 
-    // UI 컴포넌트
     private JLabel timerLabel;
     private JLabel roundLabel;
     private JTextArea statusArea;
     private JTextArea scoreArea;
     private GameBoardPanel gameBoardPanel;
 
-    // 게임 상태
     private int timeLeft = 120;
     private Timer swingTimer;
     private boolean isGameActive = false;
     private int score = 0;
     private int foundCount = 0;
     private int totalAnswers = 0;
-    private int currentRound = 1; // 현재 라운드 추적
+    private int currentRound = 1;
+    
+    // ★ 힌트 관련
+    private int hintsRemaining = 3;
+    
+    private Image singleCursorImage;
 
     public SinglePlayerGUI(Socket socket, ObjectInputStream in, ObjectOutputStream out,
                           String playerName, String difficulty, GamePacket roundStartPacket, GameLauncher launcher) {
@@ -47,6 +48,8 @@ public class SinglePlayerGUI extends JFrame {
         this.playerName = playerName;
         this.difficulty = difficulty;
         this.launcher = launcher;
+        
+        initCustomCursor();
 
         setTitle("숨은 그림 찾기 - 1인 플레이 (플레이어: " + playerName + ")");
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -62,17 +65,27 @@ public class SinglePlayerGUI extends JFrame {
         buildUI();
         setupKeyBindings();
         
-        // 서버 리스너 시작
         Thread listenerThread = new Thread(this::listenFromServer);
         listenerThread.setDaemon(true);
         listenerThread.start();
         
-        // 라운드 시작
         handlePacket(roundStartPacket);
 
         pack(); 
         setResizable(false);
         setVisible(true);
+    }
+    
+    private void initCustomCursor() {
+        try {
+            singleCursorImage = new ImageIcon("images/singleMouse.png").getImage();
+            Toolkit tk = Toolkit.getDefaultToolkit();
+            Cursor customCursor = tk.createCustomCursor(singleCursorImage, new Point(0, 0), "SingleCursor");
+            this.setCursor(customCursor);
+            
+        } catch (Exception e) {
+            System.out.println("[SinglePlayerGUI] 커서 이미지 로드 실패: " + e.getMessage());
+        }
     }
 
     private void buildUI() {
@@ -80,11 +93,11 @@ public class SinglePlayerGUI extends JFrame {
         topBar.setBackground(new Color(220, 220, 220));
         topBar.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         JLabel titleLabel = new JLabel("숨은 그림 찾기 (1인 플레이)");
-        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20)); // 24 -> 20
+        titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
         timerLabel = new JLabel("타이머: 120초", SwingConstants.CENTER);
-        timerLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18)); // 20 -> 18
+        timerLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         roundLabel = new JLabel("라운드 1", SwingConstants.RIGHT);
-        roundLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18)); // 20 -> 18
+        roundLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         topBar.add(titleLabel, BorderLayout.WEST);
         topBar.add(timerLabel, BorderLayout.CENTER);
         topBar.add(roundLabel, BorderLayout.EAST);
@@ -92,14 +105,14 @@ public class SinglePlayerGUI extends JFrame {
 
         JPanel centerPanel = new JPanel(new BorderLayout());
         gameBoardPanel = new GameBoardPanel();
-        gameBoardPanel.setPreferredSize(new Dimension(500, 400)); // 600x450 -> 500x400
+        gameBoardPanel.setPreferredSize(new Dimension(500, 400));
         centerPanel.add(gameBoardPanel, BorderLayout.CENTER);
 
         JPanel rightPanel = new JPanel(new BorderLayout());
-        rightPanel.setPreferredSize(new Dimension(200, 0)); // 220 -> 200
+        rightPanel.setPreferredSize(new Dimension(200, 0));
         statusArea = new JTextArea("[상태창]\n");
         statusArea.setEditable(false);
-        statusArea.setFont(new Font("맑은 고딕", Font.PLAIN, 11)); // 12 -> 11
+        statusArea.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
         statusArea.setLineWrap(true);
         statusArea.setWrapStyleWord(true);
         JScrollPane statusScroll = new JScrollPane(statusArea);
@@ -107,12 +120,12 @@ public class SinglePlayerGUI extends JFrame {
         rightPanel.add(statusScroll, BorderLayout.CENTER);
         scoreArea = new JTextArea();
         scoreArea.setEditable(false);
-        scoreArea.setFont(new Font("맑은 고딕", Font.BOLD, 13)); // 14 -> 13
+        scoreArea.setFont(new Font("맑은 고딕", Font.BOLD, 13));
         scoreArea.setBackground(Color.BLACK);
         scoreArea.setForeground(Color.GREEN);
         scoreArea.setMargin(new Insets(5, 5, 5, 5));
-        scoreArea.setText("점수: 0점\n찾은 개수: 0/0\n");
-        scoreArea.setRows(3); 
+        scoreArea.setText("점수: 0점\n찾은 개수: 0/0\n힌트: 3/3\n");
+        scoreArea.setRows(4); // ★ 힌트 표시 추가로 한 줄 더
         rightPanel.add(scoreArea, BorderLayout.SOUTH);
         centerPanel.add(rightPanel, BorderLayout.EAST);
         add(centerPanel, BorderLayout.CENTER);
@@ -120,35 +133,45 @@ public class SinglePlayerGUI extends JFrame {
         JPanel bottomBar = new JPanel(new BorderLayout());
         bottomBar.setBackground(new Color(230, 230, 230));
         bottomBar.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-        JLabel hintLabel = new JLabel("Q: 힌트     H: 도움말     ESC: 종료");
-        hintLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11)); // 12 -> 11
+        JLabel hintLabel = new JLabel("Q: 힌트 (3회)     H: 도움말     ESC: 종료");
+        hintLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
         bottomBar.add(hintLabel, BorderLayout.WEST);
         add(bottomBar, BorderLayout.SOUTH);
     }
     
     private void setupKeyBindings() {
         JRootPane root = getRootPane();
+        
+        // Q키 - 힌트
         root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-                .put(KeyStroke.getKeyStroke('Q'), "HINT");
+                .put(KeyStroke.getKeyStroke(KeyEvent.VK_Q, 0), "HINT");
         root.getActionMap().put("HINT", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (!isGameActive) return;
-                showHint();
+                System.out.println("[SinglePlayerGUI] Q키 눌림 - 힌트 요청");
+                if (!isGameActive) {
+                    System.out.println("[SinglePlayerGUI] 게임이 활성화되지 않음");
+                    return;
+                }
+                requestHint();
             }
         });
+        
+        // H키 - 도움말
         root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
-                .put(KeyStroke.getKeyStroke('H'), "HELP");
+                .put(KeyStroke.getKeyStroke(KeyEvent.VK_H, 0), "HELP");
         root.getActionMap().put("HELP", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 JOptionPane.showMessageDialog(
                         SinglePlayerGUI.this,
-                        "Q: 힌트 요청\nH: 도움말 보기\nESC: 게임 종료\n\n" +
+                        "Q: 힌트 요청 (최대 3회, -5점)\nH: 도움말 보기\nESC: 게임 종료\n\n" +
                         "화면을 클릭하여 숨은 그림을 찾으세요!"
                 );
             }
         });
+        
+        // ESC키 - 종료
         root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
                 .put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "EXIT");
         root.getActionMap().put("EXIT", new AbstractAction() {
@@ -159,7 +182,24 @@ public class SinglePlayerGUI extends JFrame {
         });
     }
 
-    // 서버로부터 패킷 수신
+    // ★ 힌트 요청
+    private void requestHint() {
+        if (!isGameActive) {
+            appendStatus("[힌트] 게임이 진행 중일 때만 사용할 수 있습니다.\n");
+            return;
+        }
+        
+        if (hintsRemaining <= 0) {
+            appendStatus("[힌트] 더 이상 힌트를 사용할 수 없습니다. (0/3)\n");
+            return;
+        }
+        
+        System.out.println("[SinglePlayerGUI] 힌트 요청 전송: " + playerName);
+        GamePacket hintPacket = new GamePacket(GamePacket.Type.HINT_REQUEST, playerName, "HINT");
+        sendPacket(hintPacket);
+        appendStatus("[힌트] 힌트 요청 중...\n");
+    }
+
     private void listenFromServer() {
         try {
             while (true) {
@@ -178,19 +218,24 @@ public class SinglePlayerGUI extends JFrame {
         }
     }
 
-    // 패킷 처리
     private void handlePacket(GamePacket p) {
+        System.out.println("[SinglePlayerGUI] 패킷 수신: " + p.getType());
+        
         switch (p.getType()) {
             case ROUND_START:
                 currentRound = p.getRound();
                 roundLabel.setText("라운드 " + currentRound);
+                
+                // ★ 라운드 시작 시 힌트 초기화
+                hintsRemaining = 3;
+                
                 String imagePath = p.getMessage(); 
                 List<Rectangle> originalAnswers = p.getOriginalAnswers();
                 Dimension originalDimension = p.getOriginalDimension();
                 
                 if (imagePath != null && !imagePath.isEmpty() && originalAnswers != null && originalDimension != null) {
                     totalAnswers = originalAnswers.size();
-                    foundCount = 0; // 라운드 시작 시 찾은 개수 초기화
+                    foundCount = 0;
                     gameBoardPanel.setRoundData(imagePath, originalAnswers, originalDimension);
                     appendStatus("[시스템] 라운드 " + currentRound + " 시작!\n");
                     appendStatus("[목표] " + totalAnswers + "개의 숨은 그림을 찾으세요!\n");
@@ -203,7 +248,6 @@ public class SinglePlayerGUI extends JFrame {
                 break;
                 
             case RESULT:
-                // 서버로부터 정답 확인 결과 수신
                 boolean isCorrect = p.isCorrect();
                 int answerIndex = p.getAnswerIndex();
                 
@@ -218,7 +262,6 @@ public class SinglePlayerGUI extends JFrame {
                 break;
                 
             case SCORE:
-                // 점수 업데이트
                 String scoreText = p.getMessage();
                 if (scoreText != null && scoreText.contains("점")) {
                     try {
@@ -234,13 +277,29 @@ public class SinglePlayerGUI extends JFrame {
                             }
                         }
                     } catch (Exception e) {
-                        // 파싱 실패 시 무시
                     }
                 }
                 break;
                 
+            // ★ 힌트 응답 처리
+            case HINT_RESPONSE:
+                System.out.println("[SinglePlayerGUI] 힌트 응답 수신");
+                Point hintPos = p.getHintPosition();
+                hintsRemaining = p.getRemainingHints();
+                
+                System.out.println("[SinglePlayerGUI] 힌트 위치: " + hintPos + ", 남은 횟수: " + hintsRemaining);
+                
+                if (hintPos != null) {
+                    gameBoardPanel.addHint(hintPos);
+                    appendStatus(p.getMessage() + "\n");
+                } else {
+                    appendStatus("[힌트] " + p.getMessage() + "\n");
+                }
+                
+                updateScoreDisplay();
+                break;
+                
             case MESSAGE:
-                // 서버 메시지 (라운드 완료 알림 등)
                 if (p.getMessage() != null) {
                     appendStatus("[서버] " + p.getMessage() + "\n");
                 }
@@ -256,37 +315,32 @@ public class SinglePlayerGUI extends JFrame {
                 break;
                 
             default:
+                System.out.println("[SinglePlayerGUI] 처리되지 않은 패킷: " + p.getType());
                 break;
         }
     }
     
-    // 서버로 패킷 전송 (라운드 정보 포함)
     private void sendPacket(GamePacket packet) {
         try {
             if (out != null) {
+                System.out.println("[SinglePlayerGUI] 패킷 전송: " + packet.getType());
                 out.writeObject(packet);
                 out.flush();
+            } else {
+                System.out.println("[SinglePlayerGUI] 오류: out이 null입니다!");
             }
         } catch (Exception e) {
+            System.out.println("[SinglePlayerGUI] 패킷 전송 실패: " + e.getMessage());
+            e.printStackTrace();
             appendStatus("[에러] 서버 통신 실패\n");
         }
-    }
-    
-    private void showHint() {
-        // 힌트 요청 메시지 전송
-        GamePacket hintPacket = new GamePacket(
-            GamePacket.Type.MESSAGE,
-            playerName,
-            "[힌트 요청]"
-        );
-        sendPacket(hintPacket);
-        appendStatus("[힌트] 힌트를 요청했습니다. (-5점)\n");
     }
     
     private void updateScoreDisplay() {
         scoreArea.setText(
             "점수: " + score + "점\n" +
             "찾은 개수: " + foundCount + "/" + totalAnswers + "\n" +
+            "힌트: " + hintsRemaining + "/3\n" + // ★ 힌트 표시
             "남은 시간: " + timeLeft + "초"
         );
     }
@@ -319,7 +373,6 @@ public class SinglePlayerGUI extends JFrame {
                     ((Timer) e.getSource()).stop();
                     isGameActive = false;
                     
-                    // 서버에 타이머 종료 알림
                     sendPacket(new GamePacket(GamePacket.Type.TIMER_END, "타이머 종료"));
                     appendStatus("\n[시간 종료!]\n");
                 }
@@ -332,9 +385,10 @@ public class SinglePlayerGUI extends JFrame {
     
     private void endGame(boolean isComplete) {
         isGameActive = false;
-        if (swingTimer != null) swingTimer.stop();
-        
-        // 경험치 계산
+        if (swingTimer != null) {
+            swingTimer.stop();
+            swingTimer = null;
+        }
         int expGain = 0;
         if (isComplete) {
             expGain = 50 + (score / 2);
@@ -350,7 +404,6 @@ public class SinglePlayerGUI extends JFrame {
             }
         }
         
-        // 서버 연결 종료
         try {
             if (socket != null && !socket.isClosed()) {
                 socket.close();
@@ -359,11 +412,9 @@ public class SinglePlayerGUI extends JFrame {
             System.out.println("[클라이언트] 소켓 종료 중 오류: " + e.getMessage());
         }
         
-        // 3초 후 메인 메뉴로 (새 GameLauncher 생성하지 않고 기존 것 재사용)
         Timer exitTimer = new Timer(3000, e -> {
             this.dispose();
             SwingUtilities.invokeLater(() -> {
-                // 기존 launcher가 있으면 재사용, 없으면 새로 생성
                 if (launcher != null && launcher.isDisplayable()) {
                     launcher.setVisible(true);
                     launcher.switchToMainMenu();
@@ -376,17 +427,26 @@ public class SinglePlayerGUI extends JFrame {
         exitTimer.start();
     }
     
-    // 게임 보드 패널
     class GameBoardPanel extends JPanel {
         private Image backgroundImage;
         private List<Rectangle> originalAnswers;
         private Dimension originalDimension;
         private final List<GameMark> marks = new ArrayList<>();
+        private final List<HintMark> hints = new ArrayList<>(); // ★ 힌트 마크
+        private Timer blinkTimer; // ★ 반짝임 효과
+        private boolean blinkState = true;
         private static final int RADIUS = 20; 
         
         public GameBoardPanel() {
             backgroundImage = null; 
             originalAnswers = new ArrayList<>();
+            
+            // ★ 힌트 반짝임 효과
+            blinkTimer = new Timer(500, e -> {
+                blinkState = !blinkState;
+                repaint();
+            });
+            blinkTimer.start();
             
             addMouseListener(new MouseAdapter() {
                 @Override
@@ -418,17 +478,20 @@ public class SinglePlayerGUI extends JFrame {
                     }
                     
                     if (foundIndex != -1) {
-                        // 서버로 클릭 전송 (라운드 정보 포함)
                         GamePacket clickPacket = new GamePacket(GamePacket.Type.CLICK, playerName, foundIndex);
-                        // 임시로 라운드 정보를 전달하기 위해 수정 필요
                         sendPacket(clickPacket);
                     } else {
-                        // 오답 마크 (로컬에서만 표시)
                         marks.add(new GameMark(new Point((int) originalX, (int) originalY), false));
                         repaint();
                     }
                 }
             });
+        }
+        
+        // ★ 힌트 추가
+        public void addHint(Point hintPos) {
+            hints.add(new HintMark(hintPos));
+            repaint();
         }
         
         public void setRoundData(String path, List<Rectangle> originalAnswers, Dimension originalDimension) {
@@ -457,6 +520,7 @@ public class SinglePlayerGUI extends JFrame {
         
         public void clearMarks() {
             marks.clear();
+            hints.clear(); // ★ 힌트도 초기화
             repaint();
         }
         
@@ -469,6 +533,12 @@ public class SinglePlayerGUI extends JFrame {
             Point center = new Point(originalRect.x + originalRect.width / 2, originalRect.y + originalRect.height / 2);
             
             marks.add(new GameMark(center, correct));
+            
+            // ★ 정답을 찾으면 해당 위치의 힌트 제거
+            if (correct) {
+                hints.removeIf(h -> h.position.distance(center) < 30);
+            }
+            
             repaint();
         }
         
@@ -498,6 +568,28 @@ public class SinglePlayerGUI extends JFrame {
 
                 g2.drawImage(backgroundImage, offsetX, offsetY, drawW, drawH, this);
 
+                // ★ 힌트 그리기 (반짝임 효과)
+                if (blinkState) {
+                    for (HintMark hint : hints) {
+                        int hintX = (int) (offsetX + hint.position.x * scale);
+                        int hintY = (int) (offsetY + hint.position.y * scale);
+                        
+                        // 노란색 반짝이는 원
+                        g2.setColor(new Color(255, 255, 0, 200));
+                        g2.setStroke(new BasicStroke(4));
+                        g2.draw(new Ellipse2D.Double(
+                                hintX - RADIUS - 5, hintY - RADIUS - 5,
+                                (RADIUS + 5) * 2, (RADIUS + 5) * 2
+                        ));
+                        
+                        // 별 표시
+                        g2.setColor(Color.YELLOW);
+                        g2.setFont(new Font("맑은 고딕", Font.BOLD, 30));
+                        g2.drawString("★", hintX - 15, hintY + 10);
+                    }
+                }
+
+                // 정답/오답 마크
                 for (GameMark m : marks) {
                     int drawX = (int) (offsetX + m.p.x * scale);
                     int drawY = (int) (offsetY + m.p.y * scale);
@@ -536,6 +628,14 @@ public class SinglePlayerGUI extends JFrame {
                 } else {
                     this.expiryTime = System.currentTimeMillis() + 5000; 
                 }
+            }
+        }
+        
+        // ★ 힌트 마크 클래스
+        class HintMark {
+            Point position;
+            HintMark(Point p) {
+                this.position = p;
             }
         }
     }

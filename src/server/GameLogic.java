@@ -17,44 +17,91 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
-// 정답(Rectangle)을 서버에 '수동'으로 입력
 public class GameLogic {
     private Map<String, List<Rectangle>> roundAnswers = new HashMap<>();
     private Map<String, String> roundImagePaths = new HashMap<>();
     private Map<String, Dimension> originalDimensions = new HashMap<>();
     private Map<String, boolean[]> foundStatus = new HashMap<>();
     
-    // 각 난이도별 최대 라운드 수
     private Map<String, Integer> maxRounds = new HashMap<>();
 
     public GameLogic() throws IOException {
         System.out.println("[GameLogic] 게임 정답 목록 로드 중...");
         
-        // 쉬움: 3라운드
         loadAnswersFor_Easy_1();
         loadAnswersFor_Easy_2();
         loadAnswersFor_Easy_3();
         
-        // 보통: 3라운드
         loadAnswersFor_Normal_1();
         loadAnswersFor_Normal_2();
         loadAnswersFor_Normal_3();
         
-        // 어려움: 2라운드
         loadAnswersFor_Hard_1();
         loadAnswersFor_Hard_2();
         
-        // 최대 라운드 설정
         maxRounds.put("쉬움", 3);
         maxRounds.put("보통", 3);
         maxRounds.put("어려움", 2);
         
         System.out.println("[GameLogic] 전체 정답 목록 로드 완료.");
     }
-
     // ========== 쉬움 난이도 ==========
     private void loadAnswersFor_Easy_1() {
         String key = "쉬움_1";
+        List<Rectangle> answers = new ArrayList<>();
+        
+        answers.add(new Rectangle(100, 151, 40, 40));
+        answers.add(new Rectangle(360, 275, 40, 40));
+        answers.add(new Rectangle(464, 71, 40, 40));
+        answers.add(new Rectangle(661, 668, 40, 40));
+        answers.add(new Rectangle(760, 663, 40, 40));
+        answers.add(new Rectangle(588, 831, 40, 40));
+        answers.add(new Rectangle(238, 813, 40, 40));
+        answers.add(new Rectangle(404, 405, 40, 40));
+        answers.add(new Rectangle(736, 576, 40, 40));
+        answers.add(new Rectangle(144, 311, 40, 40));
+        answers.add(new Rectangle(194, 185, 40, 40));
+
+        roundAnswers.put(key, answers);
+        roundImagePaths.put(key, "images/easy1.jpg");
+        foundStatus.put(key, new boolean[answers.size()]);
+        originalDimensions.put(key, new Dimension(850, 1202));
+    }
+    
+    private void loadAnswersFor_Easy_2() {
+        String key = "쉬움_2";
+        List<Rectangle> answers = new ArrayList<>();
+        
+        answers.add(new Rectangle(717, 126, 40, 40));
+        answers.add(new Rectangle(534, 196, 40, 40));
+        answers.add(new Rectangle(243, 160, 40, 40));
+        answers.add(new Rectangle(90, 133, 40, 40));
+        answers.add(new Rectangle(35, 345, 40, 40));
+
+        answers.add(new Rectangle(100, 481, 40, 40));
+        answers.add(new Rectangle(103, 689, 40, 40));
+        answers.add(new Rectangle(450, 767, 40, 40));
+        answers.add(new Rectangle(243, 479, 40, 40));
+        answers.add(new Rectangle(307, 459, 40, 40));
+
+        answers.add(new Rectangle(450, 507, 40, 40));
+        answers.add(new Rectangle(671, 614, 40, 40));
+        answers.add(new Rectangle(681, 488, 40, 40));
+        answers.add(new Rectangle(549, 381, 40, 40));
+        answers.add(new Rectangle(690, 374, 40, 40));
+
+        answers.add(new Rectangle(668, 304, 40, 40));
+        answers.add(new Rectangle(756, 325, 40, 40));
+        answers.add(new Rectangle(768, 581, 40, 40));
+        answers.add(new Rectangle(613, 185, 40, 40));
+        roundAnswers.put(key, answers);
+        roundImagePaths.put(key, "images/easy2.jpg"); 
+        foundStatus.put(key, new boolean[answers.size()]);
+        originalDimensions.put(key, new Dimension(850, 1202));
+    }
+    
+    private void loadAnswersFor_Easy_3() {
+        String key = "쉬움_3";
         List<Rectangle> answers = new ArrayList<>();
 
         answers.add(new Rectangle(688, 154, 40, 40));
@@ -73,30 +120,7 @@ public class GameLogic {
         answers.add(new Rectangle(666, 863, 40, 40));
         answers.add(new Rectangle(793, 738, 40, 40));
         
-        roundAnswers.put(key, answers);
-        roundImagePaths.put(key, "images/easy1.jpg");
-        foundStatus.put(key, new boolean[answers.size()]);
-        originalDimensions.put(key, new Dimension(850, 1202));
-    }
-    
-    private void loadAnswersFor_Easy_2() {
-        String key = "쉬움_2";
-        List<Rectangle> answers = new ArrayList<>();
 
-        //쉬움 2라운드 정답 좌표 입력 예정 !! 이 부분부터 좌표 추가해야해요!
-        
-        roundAnswers.put(key, answers);
-        roundImagePaths.put(key, "images/easy2.jpg"); 
-        foundStatus.put(key, new boolean[answers.size()]);
-        originalDimensions.put(key, new Dimension(850, 1202));
-    }
-    
-    private void loadAnswersFor_Easy_3() {
-        String key = "쉬움_3";
-        List<Rectangle> answers = new ArrayList<>();
-
-        //쉬움 3라운드 정답 좌표 입력 예정!!
-        
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/easy3.jpg");
         foundStatus.put(key, new boolean[answers.size()]);
@@ -108,7 +132,25 @@ public class GameLogic {
         String key = "보통_1";
         List<Rectangle> answers = new ArrayList<>();
 
-        //보통 1라운드 정답 좌표 입력 예정!!
+       
+        answers.add(new Rectangle(613, 128, 40, 40));
+        answers.add(new Rectangle(724, 187, 40, 40));
+        answers.add(new Rectangle(705, 258, 40, 40));
+        answers.add(new Rectangle(632, 335, 40, 40));
+        answers.add(new Rectangle(496, 377, 40, 40));
+        answers.add(new Rectangle(607, 490, 40, 40));
+        answers.add(new Rectangle(668, 486, 40, 40));
+        answers.add(new Rectangle(765, 553, 40, 40));
+        answers.add(new Rectangle(644, 774, 40, 40));
+        answers.add(new Rectangle(586, 796, 40, 40));
+        answers.add(new Rectangle(328, 685, 40, 40));
+        answers.add(new Rectangle(214, 600, 40, 40));
+        answers.add(new Rectangle(75, 583, 40, 40));
+        answers.add(new Rectangle(139, 381, 40, 40));
+        answers.add(new Rectangle(236, 410, 40, 40));
+        answers.add(new Rectangle(250, 326, 40, 40));
+        answers.add(new Rectangle(323, 211, 40, 40));
+
         
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/normal1.jpg");
@@ -120,7 +162,22 @@ public class GameLogic {
         String key = "보통_2";
         List<Rectangle> answers = new ArrayList<>();
 
-        //보통 2라운드 정답 좌표 입력 예정!!
+        answers.add(new Rectangle(29, 274, 40, 40));
+        answers.add(new Rectangle(63, 391, 40, 40));
+        answers.add(new Rectangle(110, 479, 40, 40));
+        answers.add(new Rectangle(190, 568, 40, 40));
+        answers.add(new Rectangle(384, 515, 40, 40));
+        answers.add(new Rectangle(357, 779, 40, 40));
+        answers.add(new Rectangle(734, 833, 40, 40));
+        answers.add(new Rectangle(449, 411, 40, 40));
+        answers.add(new Rectangle(596, 376, 40, 40));
+        answers.add(new Rectangle(676, 418, 40, 40));
+        answers.add(new Rectangle(761, 377, 40, 40));
+        answers.add(new Rectangle(472, 183, 40, 40));
+        answers.add(new Rectangle(641, 199, 40, 40));
+        answers.add(new Rectangle(544, 92, 40, 40));
+        answers.add(new Rectangle(772, 173, 40, 40));
+
         
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/normal2.jpg");
@@ -132,7 +189,21 @@ public class GameLogic {
         String key = "보통_3";
         List<Rectangle> answers = new ArrayList<>();
 
-        //보통 3라운드 정답 좌표 입력 예정!!
+        
+        
+        
+        answers.add(new Rectangle(133, 831, 40, 40));
+        answers.add(new Rectangle(122, 512, 40, 40));
+        answers.add(new Rectangle(375, 316, 40, 40));
+        answers.add(new Rectangle(651, 434, 40, 40));
+        answers.add(new Rectangle(736, 507, 40, 40));
+        answers.add(new Rectangle(466, 556, 40, 40));
+        answers.add(new Rectangle(350, 592, 40, 40));
+        answers.add(new Rectangle(423, 697, 40, 40));
+        answers.add(new Rectangle(678, 862, 40, 40));
+        answers.add(new Rectangle(517, 644, 40, 40));
+        answers.add(new Rectangle(163, 583, 40, 40));
+        
         
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/normal3.jpg");
@@ -144,9 +215,24 @@ public class GameLogic {
     private void loadAnswersFor_Hard_1() {
         String key = "어려움_1";
         List<Rectangle> answers = new ArrayList<>();
-
-        // 어려움 1라운드 정답 좌표 입력 예정!!
         
+      
+        answers.add(new Rectangle(634, 61, 40, 40));
+        answers.add(new Rectangle(66, 223, 40, 40));
+        answers.add(new Rectangle(207, 410, 40, 40));
+        answers.add(new Rectangle(97, 672, 40, 40));
+        answers.add(new Rectangle(321, 666, 40, 40));
+        answers.add(new Rectangle(294, 757, 40, 40));
+        answers.add(new Rectangle(105, 811, 40, 40));
+        answers.add(new Rectangle(469, 360, 40, 40));
+        answers.add(new Rectangle(593, 235, 40, 40));
+        answers.add(new Rectangle(641, 430, 40, 40));
+        answers.add(new Rectangle(783, 308, 40, 40));
+        answers.add(new Rectangle(697, 474, 40, 40));
+        answers.add(new Rectangle(778, 495, 40, 40));
+        answers.add(new Rectangle(637, 636, 40, 40));
+        answers.add(new Rectangle(729, 772, 40, 40));
+        answers.add(new Rectangle(642, 833, 40, 40));
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/hard1.jpg");
         foundStatus.put(key, new boolean[answers.size()]);
@@ -157,28 +243,41 @@ public class GameLogic {
         String key = "어려움_2";
         List<Rectangle> answers = new ArrayList<>();
 
-        //어려움 2라운드 정답 좌표 입력 예정!!
-        
+        answers.add(new Rectangle(190, 160, 40, 40));
+        answers.add(new Rectangle(88, 303, 40, 40));
+        answers.add(new Rectangle(299, 255, 40, 40));
+        answers.add(new Rectangle(437, 269, 40, 40));
+        answers.add(new Rectangle(496, 332, 40, 40));
+        answers.add(new Rectangle(620, 207, 40, 40));
+        answers.add(new Rectangle(763, 138, 40, 40));
+        answers.add(new Rectangle(673, 425, 40, 40));
+        answers.add(new Rectangle(739, 520, 40, 40));
+        answers.add(new Rectangle(695, 765, 40, 40));
+        answers.add(new Rectangle(763, 765, 40, 40));
+        answers.add(new Rectangle(709, 823, 40, 40));
+        answers.add(new Rectangle(63, 792, 40, 40));
+        answers.add(new Rectangle(137, 610, 40, 40));
+        answers.add(new Rectangle(273, 656, 40, 40));
+        answers.add(new Rectangle(120, 536, 40, 40));
+        answers.add(new Rectangle(39, 427, 40, 40));
+        answers.add(new Rectangle(477, 474, 40, 40));
         
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/hard2.jpg");
         foundStatus.put(key, new boolean[answers.size()]);
         originalDimensions.put(key, new Dimension(850, 1202));
     }
-
     // ========== 공통 메서드 ==========
     
     public void loadRound(String difficulty, int round) {
         String key = difficulty + "_" + round;
         
-        // 미리 로드된 정답이 없으면 파일에서 로드 시도
         if (!roundAnswers.containsKey(key)) {
             System.out.println("[GameLogic] 경고: " + key + " 정보가 미리 로드되지 않아 동적 로드 시도...");
             try {
                  loadAnswersFromFile(difficulty, round);
             } catch (IOException e) {
                  System.out.println("[GameLogic] 동적 로드 실패: " + e.getMessage());
-                 // 기본값으로 쉬움_1 사용
                  key = "쉬움_1"; 
             }
         }
@@ -192,13 +291,12 @@ public class GameLogic {
         }
     }
     
-    // 텍스트 파일에서 정답 로드 (선택사항)
     private void loadAnswersFromFile(String difficulty, int round) throws IOException {
         String key = difficulty + "_" + round;
         String fileName = "answers/" + difficulty + "_" + round + ".txt";
         
         List<Rectangle> answers = new ArrayList<>();
-        Dimension dim = new Dimension(800, 600); // 기본값
+        Dimension dim = new Dimension(800, 600);
         File file = new File(fileName);
         
         if (!file.exists()) throw new IOException(fileName + " 파일이 없습니다.");
@@ -206,14 +304,12 @@ public class GameLogic {
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
             
-            // 1. 첫 줄: 원본 크기
             if ((line = br.readLine()) != null) {
                 String[] parts = line.split(",");
                 dim = new Dimension(Integer.parseInt(parts[0].trim()), Integer.parseInt(parts[1].trim()));
             }
             originalDimensions.put(key, dim);
 
-            // 2. 나머지: 정답 좌표
             while ((line = br.readLine()) != null) {
                 if (line.trim().isEmpty()) continue;
                 String[] parts = line.split(",");
@@ -288,12 +384,20 @@ public class GameLogic {
         return true;
     }
     
-    // 해당 난이도의 최대 라운드 수 반환
+    // ★ 특정 정답이 찾아졌는지 확인 (힌트용)
+    public synchronized boolean isAnswerFound(String difficulty, int round, int answerIndex) {
+        String key = difficulty + "_" + round;
+        boolean[] found = foundStatus.get(key);
+        if (found == null || answerIndex < 0 || answerIndex >= found.length) {
+            return true; // 잘못된 인덱스는 "찾은 것"으로 처리
+        }
+        return found[answerIndex];
+    }
+    
     public int getMaxRounds(String difficulty) {
         return maxRounds.getOrDefault(difficulty, 1);
     }
     
-    // 다음 라운드가 있는지 확인
     public boolean hasNextRound(String difficulty, int currentRound) {
         return currentRound < getMaxRounds(difficulty);
     }

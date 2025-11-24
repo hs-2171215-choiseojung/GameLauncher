@@ -3,6 +3,8 @@ package model;
 import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 
 // 사용자 데이터 (닉네임, 레벨, 경험치) 관리 클래스
 public class UserData implements Serializable {
@@ -11,7 +13,7 @@ public class UserData implements Serializable {
     private static final String LAST_LOGIN_FILE = "lastlogin.dat";
     
     private String nickname;
-    private String password;
+    private String passwordHash;
     private int level;
     private int experience;
     
@@ -21,12 +23,14 @@ public class UserData implements Serializable {
     // 현재 로그인한 사용자
     private static UserData instance = null;
     
+ // 4. 생성자 수정
     private UserData(String nickname, String password) {
         this.nickname = nickname;
-        this.password = password;
+        this.passwordHash = hashPassword(password);
         this.level = 1;
         this.experience = 0;
     }
+
     
     // 저장된 데이터 로드 또는 새로 생성
     public static UserData getInstance() {
@@ -61,9 +65,9 @@ public class UserData implements Serializable {
         loadAllAccounts();
         
         UserData user = allAccounts.get(nickname);
-        if (user != null && user.password.equals(password)) {
+        if (user != null && user.passwordHash.equals(hashPassword(password))) { // 변경
             instance = user;
-            saveLastLogin(nickname); // 마지막 로그인 정보 저장
+            saveLastLogin(nickname);
             return true;
         }
         return false;
@@ -74,6 +78,24 @@ public class UserData implements Serializable {
         loadAllAccounts();
         return allAccounts.containsKey(nickname);
     }
+    
+ // 3. 비밀번호 해싱 메서드 추가
+    private static String hashPassword(String password) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(password.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("비밀번호 암호화 실패", e);
+        }
+    }
+
     
     // 모든 계정 정보 로드
     private static void loadAllAccounts() {
@@ -150,10 +172,10 @@ public class UserData implements Serializable {
     
     // 비밀번호 변경
     public void changePassword(String oldPassword, String newPassword) throws Exception {
-        if (!this.password.equals(oldPassword)) {
+        if (!this.passwordHash.equals(hashPassword(oldPassword))) { // 변경
             throw new Exception("현재 비밀번호가 일치하지 않습니다.");
         }
-        this.password = newPassword;
+        this.passwordHash = hashPassword(newPassword); // 변경
         saveAllAccounts();
     }
     
