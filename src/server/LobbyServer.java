@@ -194,10 +194,10 @@ public class LobbyServer {
             }
         }
         
-        // ★ 1인 플레이 라운드 시작
+  
         private void startRoundForPlayer(int round) {
             playerCurrentRound = round;
-            playerHintCount = 3; // ★ 힌트 초기화
+            playerHintCount = 3; 
             gameLogic.loadRound(playerDifficulty, round);
             
             Map<String, Integer> singleIndexMap = new HashMap<>();
@@ -229,6 +229,7 @@ public class LobbyServer {
         public boolean isSinglePlayer() { return isSinglePlayer; }
         public RoomManager getRoom() { return room; }
 
+  
         private void handleDisconnect() {
             if (playerName != null) {
                 clients.remove(playerName);
@@ -236,9 +237,10 @@ public class LobbyServer {
                 if (isSinglePlayer) {
                     singlePlayScores.remove(playerName);
                     playerReadyStatus.remove(playerName);
-                    System.out.println("[서버] 1인 플레이 세션 종료.");
+                    System.out.println("[서버] [1인 플레이] " + playerName + " 세션 종료.");
                 } else {
                     if(room != null) {
+                        
                         boolean isRoomEmpty = room.removePlayer(this);
                         
                         if(isRoomEmpty) {
@@ -293,7 +295,7 @@ public class LobbyServer {
         }
     }
     
-    // ★ 1인 플레이 힌트 처리
+   
     private synchronized void handleHintForSinglePlayer(ClientHandler handler) {
         if (handler.playerHintCount <= 0) {
             handler.sendPacket(new GamePacket(

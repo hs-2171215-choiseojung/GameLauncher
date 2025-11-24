@@ -227,85 +227,7 @@ public class GameLauncher extends JFrame {
         worker.execute();
     }
 
-    // ===============================
-    // 동적(손전등) 모드 1인 플레이
-    // ===============================
-    public void startFlashlightGame() {
-        isSinglePlayer = true;
-        UserData userData = UserData.getInstance();
-        this.playerName = (userData != null) ? userData.getNickname() : "Guest";
-
-        String[] options = {"쉬움", "보통", "어려움"};
-        String difficulty = (String) JOptionPane.showInputDialog(
-                this,
-                "동적 모드 난이도를 선택하세요:",
-                "동적 모드 (손전등)",
-                JOptionPane.QUESTION_MESSAGE,
-                null,
-                options,
-                options[0]
-        );
-
-        if (difficulty == null) return;
-        this.selectedDifficulty = difficulty;
-
-        String host = "127.0.0.1";
-        int port = 9999;
-
-        SwingWorker<Socket, Void> worker = new SwingWorker<Socket, Void>() {
-            @Override
-            protected Socket doInBackground() throws Exception {
-                return new Socket(host, port);
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    Socket socket = get();
-                    ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-                    ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-
-                    GamePacket joinPacket = new GamePacket(
-                            GamePacket.Type.JOIN,
-                            playerName,
-                            "SINGLE_FLASH_" + selectedDifficulty,
-                            true
-                    );
-                    out.writeObject(joinPacket);
-                    out.flush();
-
-                    Object resp = in.readObject();
-                    if (!(resp instanceof GamePacket)) {
-                        throw new Exception("서버 응답 오류");
-                    }
-                    GamePacket roundStartPacket = (GamePacket) resp;
-
-                    if (roundStartPacket.getType() == GamePacket.Type.ROUND_START) {
-                        GameLauncher.this.setVisible(false);
-                        new FlashlightGame(
-                                socket,
-                                in,
-                                out,
-                                playerName,
-                                selectedDifficulty,
-                                roundStartPacket,
-                                GameLauncher.this
-                        );
-                    } else {
-                        throw new Exception("서버 응답 오류");
-                    }
-
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(GameLauncher.this,
-                            "게임 시작 실패: " + ex.getMessage(),
-                            "오류",
-                            JOptionPane.ERROR_MESSAGE);
-                    ex.printStackTrace();
-                }
-            }
-        };
-        worker.execute();
-    }
+   
 
     // ===============================
     // 멀티: 대기방 입장 (첫 패킷 넘겨 받는 버전)
@@ -334,20 +256,17 @@ public class GameLauncher extends JFrame {
             cardName = CARD_LOBBY_NORMAL;
         }
 
-        // 대기방 연결 정보 설정 + 내 이름 전달
         currentRoom.setConnection(out, playerName, roomNumber);
 
-        // 화면 전환
+        
         this.setSize(600, 500);
         cardLayout.show(mainPanel, cardName);
         setTitle("대기방 (유저: " + playerName + ")");
 
-        // ✅ 첫 번째 패킷이 이미 HomePanel에서 읽힌 경우 → 여기서 즉시 처리
         if (firstPacket != null) {
             handlePacket(firstPacket);
         }
 
-        // 이후부터는 리스너가 계속 처리
         Thread listenerThread = new Thread(this::listenFromServer);
         listenerThread.setDaemon(true);
         listenerThread.start();
@@ -427,8 +346,7 @@ public class GameLauncher extends JFrame {
                             in,
                             out,
                             playerName,
-                            selectedDifficulty,
-                            p,
+                            gameType, p,
                             this
                     );
                 } else {

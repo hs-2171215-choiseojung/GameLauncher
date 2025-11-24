@@ -6,6 +6,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.io.ObjectOutputStream;
+import java.util.HashMap;
 import java.util.Map;
 
 public class WaitingRoom extends JPanel {
@@ -20,7 +21,9 @@ public class WaitingRoom extends JPanel {
     private JTextArea chatArea;
     private JTextField chatInput;
     private InfoPanel infoPanel;
-
+    private final Map<Integer, String> emotes = new HashMap<>();
+    
+    
     public WaitingRoom(GameLauncher launcher, String gameType) {
         this.launcher = launcher;
         this.gameType = gameType;
@@ -48,9 +51,15 @@ public class WaitingRoom extends JPanel {
         ActionListener sendChatAction = e -> sendChat();
         chatInput.addActionListener(sendChatAction);
         sendButton.addActionListener(sendChatAction);
+        
+   
+        emotes.put(1, "화이팅!");
+        emotes.put(2, "좋아요!");
+        emotes.put(3, "힘내요!");
+        emotes.put(4, "GG!"); 
+        
     }
 
-    // ★★★★★ 핵심: resetUI() 삭제 → 방장 UI가 깨지는 문제 해결
     public void setConnection(ObjectOutputStream out, String playerName, String roomNumber) {
         this.out = out;
         this.playerName = playerName;
@@ -61,12 +70,24 @@ public class WaitingRoom extends JPanel {
         chatArea.setText("");
         chatArea.append("=== [" + roomNumber + "] 번 대기방에 입장했습니다 (" + gameType + ") ===\n");
 
-        // ★ resetUI() 절대 호출 금지
+       
     }
 
     private void sendChat() {
         String text = chatInput.getText().trim();
         if (text.isEmpty()) return;
+
+        
+        if (text.startsWith("/") && text.length() > 1) {
+            try {
+                int num = Integer.parseInt(text.substring(1));
+                if (emotes.containsKey(num)) {
+                    text = emotes.get(num);  
+                }
+            } catch (NumberFormatException ignored) {
+                
+            }
+        }
 
         GamePacket chatPacket = new GamePacket(
                 GamePacket.Type.MESSAGE,

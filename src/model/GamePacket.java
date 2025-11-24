@@ -272,6 +272,13 @@ public class GamePacket implements Serializable {
     public double getX() { return x; }
     public double getY() { return y; }
     public Map<String, Integer> getPlayerIndexMap() { return playerIndexMap; }
+    public void setX(double x) {
+        this.x = x;
+    }
+
+    public void setY(double y) {
+        this.y = y;
+    }
 
     public String getGameType() { return gameType; }
     

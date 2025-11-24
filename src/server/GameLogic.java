@@ -384,12 +384,12 @@ public class GameLogic {
         return true;
     }
     
-    // ★ 특정 정답이 찾아졌는지 확인 (힌트용)
+   
     public synchronized boolean isAnswerFound(String difficulty, int round, int answerIndex) {
         String key = difficulty + "_" + round;
         boolean[] found = foundStatus.get(key);
         if (found == null || answerIndex < 0 || answerIndex >= found.length) {
-            return true; // 잘못된 인덱스는 "찾은 것"으로 처리
+            return true; 
         }
         return found[answerIndex];
     }
