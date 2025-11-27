@@ -21,7 +21,6 @@ public class GameLogic {
     private Map<String, List<Rectangle>> roundAnswers = new HashMap<>();
     private Map<String, String> roundImagePaths = new HashMap<>();
     private Map<String, Dimension> originalDimensions = new HashMap<>();
-    private Map<String, boolean[]> foundStatus = new HashMap<>();
     
     private Map<String, Integer> maxRounds = new HashMap<>();
 
@@ -64,7 +63,6 @@ public class GameLogic {
 
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/easy1.jpg");
-        foundStatus.put(key, new boolean[answers.size()]);
         originalDimensions.put(key, new Dimension(850, 1202));
     }
     
@@ -96,7 +94,6 @@ public class GameLogic {
         answers.add(new Rectangle(613, 185, 40, 40));
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/easy2.jpg"); 
-        foundStatus.put(key, new boolean[answers.size()]);
         originalDimensions.put(key, new Dimension(850, 1202));
     }
     
@@ -123,7 +120,6 @@ public class GameLogic {
 
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/easy3.jpg");
-        foundStatus.put(key, new boolean[answers.size()]);
         originalDimensions.put(key, new Dimension(850, 1202));
     }
 
@@ -154,7 +150,6 @@ public class GameLogic {
         
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/normal1.jpg");
-        foundStatus.put(key, new boolean[answers.size()]);
         originalDimensions.put(key, new Dimension(850, 1202));
     }
     
@@ -181,7 +176,6 @@ public class GameLogic {
         
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/normal2.jpg");
-        foundStatus.put(key, new boolean[answers.size()]);
         originalDimensions.put(key, new Dimension(850, 1202));
     }
     
@@ -207,7 +201,6 @@ public class GameLogic {
         
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/normal3.jpg");
-        foundStatus.put(key, new boolean[answers.size()]);
         originalDimensions.put(key, new Dimension(850, 1202));
     }
 
@@ -235,7 +228,6 @@ public class GameLogic {
         answers.add(new Rectangle(642, 833, 40, 40));
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/hard1.jpg");
-        foundStatus.put(key, new boolean[answers.size()]);
         originalDimensions.put(key, new Dimension(850, 1202));
     }
     
@@ -264,7 +256,6 @@ public class GameLogic {
         
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/hard2.jpg");
-        foundStatus.put(key, new boolean[answers.size()]);
         originalDimensions.put(key, new Dimension(850, 1202));
     }
     // ========== 공통 메서드 ==========
@@ -284,7 +275,6 @@ public class GameLogic {
         
         if (roundAnswers.containsKey(key)) {
             int count = roundAnswers.get(key).size();
-            foundStatus.put(key, new boolean[count]);
             System.out.println("[GameLogic] " + key + " 라운드 정답 " + count + "개 상태 초기화.");
         } else {
             System.out.println("[GameLogic] 오류: " + key + " 정답 목록을 찾을 수 없습니다.");
@@ -324,7 +314,6 @@ public class GameLogic {
 
         roundAnswers.put(key, answers);
         roundImagePaths.put(key, "images/" + difficulty + round + ".jpg");
-        foundStatus.put(key, new boolean[answers.size()]);
         System.out.println("[GameLogic] " + key + " 정답 " + answers.size() + "개 (파일) 로드 완료.");
     }
     
@@ -342,23 +331,25 @@ public class GameLogic {
         String key = difficulty + "_" + round;
         return originalDimensions.get(key);
     }
+    
+    public boolean isValidIndex(String difficulty, int round, int answerIndex) {
+        String key = difficulty + "_" + round;
+        List<Rectangle> answers = roundAnswers.get(key);
+        
+        if (answers == null || answerIndex < 0 || answerIndex >= answers.size()) {
+            return false; 
+        }
+        return true;
+    }
 
     public synchronized boolean checkAnswer(String difficulty, int round, int answerIndex) {
         String key = difficulty + "_" + round;
-        boolean[] found = foundStatus.get(key);
+        List<Rectangle> answers = roundAnswers.get(key);
         
-        if (found == null || answerIndex < 0 || answerIndex >= found.length) {
-            System.out.println("[GameLogic] 판정 오류: 잘못된 인덱스 " + answerIndex);
+        if (answers == null || answerIndex < 0 || answerIndex >= answers.size()) {
             return false; 
         }
         
-        if (found[answerIndex]) {
-            System.out.println("[GameLogic] " + key + " " + answerIndex + "번은 이미 찾음.");
-            return false; 
-        }
-        
-        found[answerIndex] = true; 
-        System.out.println("[GameLogic] " + key + " 정답 " + answerIndex + "번 찾음!");
         return true;
     }
     
@@ -372,26 +363,6 @@ public class GameLogic {
         int cx = r.x + r.width / 2;
         int cy = r.y + r.height / 2;
         return new Point(cx, cy);
-    }
-
-    public boolean areAllFound(String difficulty, int round) {
-        String key = difficulty + "_" + round; 
-        boolean[] found = foundStatus.get(key);
-        if (found == null) return false;
-        for (boolean f : found) {
-            if (!f) return false; 
-        }
-        return true;
-    }
-    
-   
-    public synchronized boolean isAnswerFound(String difficulty, int round, int answerIndex) {
-        String key = difficulty + "_" + round;
-        boolean[] found = foundStatus.get(key);
-        if (found == null || answerIndex < 0 || answerIndex >= found.length) {
-            return true; 
-        }
-        return found[answerIndex];
     }
     
     public int getMaxRounds(String difficulty) {

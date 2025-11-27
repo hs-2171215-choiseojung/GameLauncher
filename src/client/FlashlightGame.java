@@ -12,7 +12,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.*;
-import java.awt.RadialGradientPaint;
+
 import javax.swing.Timer;
 
 import java.util.List;
@@ -44,7 +44,11 @@ public class FlashlightGame extends JFrame implements KeyListener {
     private int foundCount = 0;
     private int totalAnswers = 0;
     private int currentRound = 1;
+    private int currentTeamScore = 0;
+    private int globalFoundCount = 0;
     private boolean[] keys;
+    
+    private long lastSendTime = 0;
 
     private static final int PLAYER_SIZE = 40;
     private static final int FLASHLIGHT_RADIUS = 150;
@@ -59,11 +63,9 @@ public class FlashlightGame extends JFrame implements KeyListener {
     private Timer moveTimer;
     private Image cursorImage;
 
-    private String gameMode = "협동";   
-
+    private String gameMode = "협동";
    
     private int cursorIndex = 1;
-
 
     private final Map<String, RemoteCursor> remoteCursors = new HashMap<>();
 
@@ -75,6 +77,8 @@ public class FlashlightGame extends JFrame implements KeyListener {
 
     private Map<String, Integer> playerIndexMap = new HashMap<>();
     private int playerIndex = 0; 
+    
+    private boolean isIntentionalExit = false;
 
     public FlashlightGame(Socket socket, ObjectInputStream in, ObjectOutputStream out,
                           String playerName, String difficulty, GamePacket roundStartPacket,
@@ -149,18 +153,18 @@ public class FlashlightGame extends JFrame implements KeyListener {
     }
 
     private Image getCursorImageByIndex(int idx) {
-        if (idx < 1 || idx > 5) {
+        if (idx < 0 || idx > 4) {
             System.out.println("[FlashlightGame] 잘못된 커서 인덱스: " + idx + " -> 1로 변경");
-            idx = 1;
+            idx = 0;
         }
 
         if (cursorImageCache.containsKey(idx)) {
-            System.out.println("[FlashlightGame] 캐시에서 커서" + idx + " 이미지 로드");
+            //System.out.println("[FlashlightGame] 캐시에서 커서" + idx + " 이미지 로드");
             return cursorImageCache.get(idx);
         }
 
         try {
-            String path = "images/cursor" + idx + ".png";
+            String path = "images/cursor" + (idx+1) + ".png";
             System.out.println("[FlashlightGame] 커서 이미지 로드 시도: " + path);
 
             Image img = new ImageIcon(path).getImage();
@@ -247,12 +251,10 @@ public class FlashlightGame extends JFrame implements KeyListener {
         scoreArea.setBackground(Color.BLACK);
         scoreArea.setForeground(Color.GREEN);
         scoreArea.setMargin(new Insets(5, 5, 5, 5));
-
-        if (!"경쟁".equals(gameMode)) {
-            scoreArea.setText("점수: 0점\n찾은 개수: 0/0\n");
-        }
-
-        scoreArea.setRows(3);
+        scoreArea.setRows(3); // 3줄 확보
+        
+        updateScoreDisplay();
+        
         rightPanel.add(scoreArea, BorderLayout.SOUTH);
         centerPanel.add(rightPanel, BorderLayout.EAST);
         add(centerPanel, BorderLayout.CENTER);
@@ -444,7 +446,11 @@ public class FlashlightGame extends JFrame implements KeyListener {
         }
 
         if (moved) {
-            sendCursorMove();
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastSendTime > 50) { // 50ms 딜레이
+                sendCursorMove();
+                lastSendTime = currentTime;
+            }
         }
 
         gameBoardPanel.removeExpiredMarks();
@@ -498,12 +504,15 @@ public class FlashlightGame extends JFrame implements KeyListener {
                 SwingUtilities.invokeLater(() -> handlePacket(p));
             }
         } catch (Exception e) {
-            SwingUtilities.invokeLater(() -> {
-                if (this.isVisible()) {
-                    appendStatus("[시스템] 서버 연결이 끊어졌습니다.\n");
-                    handleGameExit();
-                }
-            });
+        	if (!isIntentionalExit) {
+        		this.dispose();
+                SwingUtilities.invokeLater(() -> {
+                    if (this.isVisible()) {
+                        appendStatus("[시스템] 서버 연결이 끊어졌습니다.\n");
+                        handleGameExit();
+                    }
+                });
+        	}
         }
     }
 
@@ -518,6 +527,12 @@ public class FlashlightGame extends JFrame implements KeyListener {
 
                 currentRound = p.getRound();
                 roundLabel.setText("라운드 " + currentRound);
+                
+                totalAnswers = p.getOriginalAnswers().size();
+                score = 0;
+                foundCount = 0;
+                currentTeamScore = 0;
+                globalFoundCount = 0;
 
                 this.gameMode = p.getGameMode();
 
@@ -528,10 +543,10 @@ public class FlashlightGame extends JFrame implements KeyListener {
                 }
 
                 int idx = p.getCursorIndex();
-                if (idx >= 1 && idx <= 5) {
+                if (idx >= 0 && idx <= 4) {
                     this.cursorIndex = idx;
                 } else {
-                    this.cursorIndex = 1;
+                    this.cursorIndex = 0;
                 }
                 loadCursorImage();
 
@@ -557,36 +572,42 @@ public class FlashlightGame extends JFrame implements KeyListener {
                 gameBoardPanel.clearMarks();
                 remoteCursors.clear();
 
+                updateScoreDisplay();
                 startCountdownTimer(120);
                 break;
 
             case RESULT:
-                boolean isCorrect = p.isCorrect();
-                int answerIndex = p.getAnswerIndex();
-
-                if (isCorrect) {
-                    gameBoardPanel.addMark(
-                            answerIndex,
-                            true,
-                            p.getSender()
-                    );
-
-                    foundCount++;
-                    appendStatus("[정답] 찾았습니다! (" + foundCount + "/" + totalAnswers + ")\n");
+            	if (p.isCorrect()) {
+                    gameBoardPanel.addMark(p.getAnswerIndex(), true, p.getSender());
+                    globalFoundCount++; // 전체 개수 증가
+                    
+                    if (playerName.equals(p.getSender())) {
+                        foundCount++;
+                    }
+                    
+                    if (p.getMessage() != null) appendStatus(p.getMessage() + "\n");
                 } else {
-                    gameBoardPanel.addMarkAtPosition(p.getX(), p.getY(), false);
-                    appendStatus("[오답] 해당 위치에는 숨은 그림이 없습니다.\n");
+                	if ("협동".equals(gameMode) || playerName.equals(p.getSender())) {
+                        gameBoardPanel.addMarkAtPosition(p.getX(), p.getY(), false);
+                    }
+                	if (p.getMessage() != null) appendStatus(p.getMessage() + "\n");
                 }
+                updateScoreDisplay();
                 break;
-
+                
             case SCORE:
-                if (p.getMessage() == null) break;
-
-                if ("경쟁".equals(gameMode)) {
-                    scoreArea.setText(p.getMessage());
+            	String msg = p.getMessage();
+                if (msg == null) break;
+                
+                if ("협동".equals(gameMode) && msg.startsWith("SCORE_COOP:")) {
+                    try {
+                        String num = msg.substring(11).trim();
+                        if (!num.isEmpty()) currentTeamScore = Integer.parseInt(num);
+                    } catch (Exception e) {}
                 } else {
-                    parseScore(p.getMessage());
+                    parseScore(msg); // 경쟁은 기존 파싱 로직
                 }
+                updateScoreDisplay();
                 break;
 
             case MESSAGE:
@@ -637,16 +658,21 @@ public class FlashlightGame extends JFrame implements KeyListener {
             case TIME_BONUS:
                 timeLeft += 5;
                 timerLabel.setText("타이머: " + timeLeft + "초");
+                updateScoreDisplay();
                 appendStatus("[보너스] 타이머 +5초!\n");
                 break;
 
             case MOUSE_MOVE:
+            	if (p.getSender().equals(playerName)) return;
+
+                if ("경쟁".equals(gameMode)) return;
+                
                 if (!p.getSender().equals(playerName)) {
                     int rx = (int) p.getX();
                     int ry = (int) p.getY();
                     int rIdx = p.getCursorIndex();
 
-                    if (rIdx < 1 || rIdx > 5) {
+                    if (rIdx < 0 || rIdx > 4) {
                         System.out.println("[FlashlightGame] 경고: " + p.getSender() + "의 잘못된 커서 인덱스: " + rIdx + " -> 1로 변경");
                         rIdx = 1;
                     }
@@ -663,14 +689,141 @@ public class FlashlightGame extends JFrame implements KeyListener {
                 isGameActive = false;
                 if (swingTimer != null) swingTimer.stop();
                 if (moveTimer != null) moveTimer.stop();
-                appendStatus("\n[게임 종료]\n" + p.getMessage() + "\n");
+
+                msg = p.getMessage();
+                Object content;
+                if (msg != null && msg.startsWith("RANKING:")) {
+                    content = createRankingPanel(msg);
+                } else {
+                    JTextArea ta = new JTextArea(msg);
+                    ta.setEditable(false);
+                    ta.setBackground(new Color(240, 240, 240));
+                    content = new JScrollPane(ta);
+                }
+
+                JOptionPane.showMessageDialog(
+                    this, 
+                    content, 
+                    "게임 종료 결과", 
+                    JOptionPane.PLAIN_MESSAGE
+                );
+                
                 UserData userData = UserData.getInstance();
-                if (userData != null) userData.addExperience(50);
+                if (userData != null) {
+                	int calcScore;
+                    
+                    if ("협동".equals(gameMode)) {
+                        // 협동: 기여도(맞힌 개수) 기반 점수 환산
+                        calcScore = foundCount * 10;
+                    } else {
+                        // 경쟁: 내 실제 점수 (score 변수에 이미 저장됨)
+                        calcScore = score;
+                    }
+
+                    // 싱글 플레이 공식 적용: 50 + (점수 / 2)
+                    int expGain = 50 + (calcScore / 2);
+                    if (expGain < 0) expGain = 0;
+
+                    userData.addExperience(expGain);
+                }
                 Timer exitTimer = new Timer(3000, e -> handleGameExit());
                 exitTimer.setRepeats(false);
                 exitTimer.start();
                 break;
         }
+    }
+    
+    private JPanel createRankingPanel(String data) {
+        String[] lines = data.substring(8).split("\n");
+        
+        boolean isCoop = "협동".equals(gameMode);
+        
+        // 협동일 때 총점 표시를 위해 BoxLayout 사용
+        JPanel container = new JPanel();
+        container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
+        
+        // 협동 모드 상단에 총점 표시
+        if (isCoop && lines.length > 0) {
+            String[] firstLineParts = lines[0].split(",");
+            if (firstLineParts.length >= 4) {
+                String totalScore = firstLineParts[3]; // 첫 번째 사람의 점수 = 팀 점수
+                
+                JPanel scorePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                JLabel scoreLabel = new JLabel("팀 총점 : " + totalScore + "점");
+                scoreLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
+                scorePanel.add(scoreLabel);
+                
+                container.add(scorePanel);
+                container.add(Box.createVerticalStrut(5));
+            }
+        }
+
+        // 협동: 2열 / 경쟁: 3열
+        int cols = isCoop ? 2 : 3;
+        JPanel listPanel = new JPanel(new GridLayout(1, cols, 10, 0));
+        
+        // 패널 생성
+        JPanel leftPanel = new JPanel(); 
+        leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.Y_AXIS)); // 순위+닉네임
+        
+        JPanel centerPanel = new JPanel(); 
+        centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS)); // 개수
+        
+        JPanel rightPanel = null;
+        if (!isCoop) {
+            rightPanel = new JPanel(); 
+            rightPanel.setLayout(new BoxLayout(rightPanel, BoxLayout.Y_AXIS)); // 점수 (경쟁만)
+        }
+        
+        // 헤더 추가
+        addLabel(leftPanel, "순위   닉네임", SwingConstants.LEFT, true);
+        addLabel(centerPanel, "개수", SwingConstants.CENTER, true);
+        if (!isCoop) {
+            addLabel(rightPanel, "점수", SwingConstants.RIGHT, true);
+        }
+        
+        // 간격 띄우기
+        leftPanel.add(Box.createVerticalStrut(5));
+        centerPanel.add(Box.createVerticalStrut(5));
+        if (!isCoop) rightPanel.add(Box.createVerticalStrut(5));
+
+        // 데이터 추가
+        for (String line : lines) {
+            String[] parts = line.split(","); // rank, name, count, score
+            if (parts.length < 4) continue;
+            
+            int rank = Integer.parseInt(parts[0]);
+            String rankAndName = String.format(" %2d     %s", rank, parts[1]);
+            
+            addLabel(leftPanel, rankAndName, SwingConstants.LEFT, false);
+            addLabel(centerPanel, parts[2], SwingConstants.CENTER, false);
+            
+            // 경쟁 모드일 때만 점수 컬럼 추가
+            if (!isCoop) {
+                addLabel(rightPanel, parts[3], SwingConstants.RIGHT, false);
+            }
+        }
+        
+        listPanel.add(leftPanel);
+        listPanel.add(centerPanel);
+        if (!isCoop) {
+            listPanel.add(rightPanel);
+        }
+        
+        container.add(listPanel);
+        
+        return container;
+    }
+    
+    private void addLabel(JPanel panel, String text, int align, boolean isBold) {
+        JLabel label = new JLabel(text, align);
+        label.setFont(new Font("맑은 고딕", isBold ? Font.BOLD : Font.PLAIN, 14));
+        if (align == SwingConstants.LEFT) label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        else if (align == SwingConstants.CENTER) label.setAlignmentX(Component.CENTER_ALIGNMENT);
+        else if (align == SwingConstants.RIGHT) label.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        label.setMaximumSize(new Dimension(Integer.MAX_VALUE, label.getPreferredSize().height));
+        panel.add(label);
+        panel.add(Box.createVerticalStrut(3));
     }
 
    
@@ -710,6 +863,7 @@ public class FlashlightGame extends JFrame implements KeyListener {
             if (out != null) {
                 out.writeObject(packet);
                 out.flush();
+                out.reset();
             }
         } catch (Exception e) {
         }
@@ -772,6 +926,8 @@ public class FlashlightGame extends JFrame implements KeyListener {
     }
 
     private void handleGameExit() {
+    	isIntentionalExit = true;
+    	
         isGameActive = false;
         if (swingTimer != null) {
             swingTimer.stop();
@@ -800,10 +956,22 @@ public class FlashlightGame extends JFrame implements KeyListener {
     }
 
     private void updateScoreDisplay() {
+        int displayScore = "협동".equals(gameMode) ? currentTeamScore : score;
+        
+        // 개수 표시 로직
+        String countText;
+        if ("협동".equals(gameMode)) {
+            countText = "찾은 개수: " + globalFoundCount + "/" + totalAnswers;
+        } else {
+            int remaining = Math.max(0, totalAnswers - globalFoundCount);
+            countText = "내 개수: " + foundCount + " (남은 개수: " + remaining + ")";
+        } 
 
-    	if ("경쟁".equals(gameMode)) return;
-
-        scoreArea.setText("점수: " + score + "점\n찾은 개수: " + foundCount + "/" + totalAnswers + "\n남은 시간: " + timeLeft);
+        scoreArea.setText(
+            "점수: " + displayScore + "점\n" +
+            countText + "\n" +
+            "남은 시간: " + timeLeft + "초"
+        );
     }
 
     private void appendStatus(String msg) {
@@ -814,14 +982,19 @@ public class FlashlightGame extends JFrame implements KeyListener {
     private void startCountdownTimer(int sec) {
         if (swingTimer != null) swingTimer.stop();
         timeLeft = sec;
-        timerLabel.setText("타이머: " + timeLeft);
+        timerLabel.setText("타이머: " + timeLeft + "초");
         swingTimer = new Timer(1000, e -> {
-            if (isGameActive && timeLeft > 0) {
+        	if (isGameActive && timeLeft > 0) {
                 timeLeft--;
-                timerLabel.setText("타이머: " + timeLeft);
-                if (timeLeft <= 10) timerLabel.setForeground(Color.RED);
-                else if (timeLeft <= 30) timerLabel.setForeground(Color.YELLOW);
-                else timerLabel.setForeground(Color.BLACK);
+                timerLabel.setText("타이머: " + timeLeft + "초");
+                
+                if (timeLeft <= 30) {
+                    timerLabel.setForeground(Color.RED);
+                } else {
+                    timerLabel.setForeground(Color.BLACK);
+                }
+                
+                updateScoreDisplay();
 
                 if (!"경쟁".equals(gameMode)) {
                     updateScoreDisplay();
@@ -1053,7 +1226,6 @@ public class FlashlightGame extends JFrame implements KeyListener {
                         g2.drawString("★", hintX - 15, hintY + 10);
                     }
                 }
-
                
                 for (GameMark m : marks) {
                     int drawX = (int) (m.p.x * scale) + offsetX;
@@ -1122,7 +1294,7 @@ public class FlashlightGame extends JFrame implements KeyListener {
                         g2.drawImage(img, drawX, drawY, PLAYER_SIZE, PLAYER_SIZE, this);
                         g2.setColor(Color.YELLOW);
                         g2.setFont(new Font("맑은 고딕", Font.BOLD, 12));
-                        g2.drawString(entry.getKey() + "(C" + rc.cursorIndex + ")", drawX, drawY - 5);
+                        g2.drawString(entry.getKey(), drawX, drawY - 5);
                     }
                 }
 

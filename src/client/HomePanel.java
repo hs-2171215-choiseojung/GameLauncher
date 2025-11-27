@@ -129,8 +129,8 @@ public class HomePanel extends JPanel {
     public void resetUI() {
         connectButton.setEnabled(true);
         connectButton.setText("접속하기");
-        statusLabel.setText("서버 연결이 끊겼습니다. 다시 시도하세요.");
-        statusLabel.setForeground(Color.RED);
+        statusLabel.setText("방 번호를 입력하고 접속하세요.");
+        statusLabel.setForeground(Color.BLACK);
     }
     
     private void connectToServer() {

@@ -47,9 +47,16 @@ public class HiddenObjectClientGUI extends JFrame {
 
     private Point myMousePoint = new Point(-100, -100);
 
+    private boolean isIntentionalExit = false;
     
     private int roundHintsRemaining = 3;
-
+    
+    private int hintsRemaining = 3;
+    private int totalAnswers = 0;
+    private int currentTeamScore = 0; // 협동 모드용
+    private int myScore = 0;
+    private int myFoundCount = 0;
+    private int globalFoundCount = 0;
    
     private final Map<Integer, String> emotes = new HashMap<>();
 
@@ -107,7 +114,7 @@ public class HiddenObjectClientGUI extends JFrame {
         Toolkit tk = Toolkit.getDefaultToolkit();
         try {
             for (int i = 0; i < 5; i++) {
-                cursorImages[i] = tk.getImage("images/cursor" + (i + 1) + ".png");
+                cursorImages[i] = tk.getImage("images/mouse" + (i + 1) + ".png");
             }
             singleCursorImage = tk.getImage("images/singleMouse.png");
         } catch (Exception e) {
@@ -173,12 +180,12 @@ public class HiddenObjectClientGUI extends JFrame {
 
         scoreArea = new JTextArea();
         scoreArea.setEditable(false);
-        scoreArea.setFont(new Font("맑은 고딕", Font.PLAIN, 12));
+        scoreArea.setFont(new Font("맑은 고딕", Font.BOLD, 13));
         scoreArea.setBackground(Color.BLACK);
         scoreArea.setForeground(Color.GREEN);
         scoreArea.setMargin(new Insets(5, 5, 5, 5));
-        scoreArea.setText("힌트: 3/3 (공유)\n");
-        scoreArea.setRows(4);
+        scoreArea.setRows(4); // 4줄 확보
+        updateScoreDisplay();
         rightPanel.add(scoreArea, BorderLayout.SOUTH);
 
         centerPanel.add(rightPanel, BorderLayout.EAST);
@@ -188,7 +195,7 @@ public class HiddenObjectClientGUI extends JFrame {
         bottomBar.setBackground(new Color(230, 230, 230));
         bottomBar.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
 
-        JLabel hintLabel = new JLabel("/H : 도움말   ESC : 종료");
+        JLabel hintLabel = new JLabel("/Q : 힌트   /H : 도움말   ESC : 종료");
         hintLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 11));
         bottomBar.add(hintLabel, BorderLayout.WEST);
 
@@ -228,12 +235,14 @@ public class HiddenObjectClientGUI extends JFrame {
     }
 
     private void handleGameExit() {
+    	isIntentionalExit = true;
+    	
         isGameActive = false;
         if (swingTimer != null) {
             swingTimer.stop();
             swingTimer = null;
         }
-        this.dispose();
+        
         try {
             if (socket != null && !socket.isClosed()) {
                 socket.close();
@@ -241,6 +250,13 @@ public class HiddenObjectClientGUI extends JFrame {
         } catch (Exception ex) {
             System.out.println("소켓 종료 중 오류: " + ex.getMessage());
         }
+        
+        JOptionPane.showMessageDialog(
+                this, 
+                "게임을 종료하고 대기실로 돌아갑니다.", 
+                "게임 종료", 
+                JOptionPane.PLAIN_MESSAGE
+            );
 
         SwingUtilities.invokeLater(() -> {
             if (launcher != null && launcher.isDisplayable()) {
@@ -250,6 +266,8 @@ public class HiddenObjectClientGUI extends JFrame {
                 new GameLauncher();
             }
         });
+        
+        this.dispose();
     }
 
     private void listenFromServer() {
@@ -261,26 +279,28 @@ public class HiddenObjectClientGUI extends JFrame {
                 SwingUtilities.invokeLater(() -> handlePacket(p));
             }
         } catch (Exception e) {
-            SwingUtilities.invokeLater(() -> {
-                if (this.isVisible()) {
-                    appendStatus("[시스템] 서버 연결이 끊어졌습니다.\n");
-                    JOptionPane.showMessageDialog(this, "서버 연결이 끊겼습니다.");
-                    this.dispose();
-                    try {
-                        if (socket != null && !socket.isClosed()) {
-                            socket.close();
-                        }
-                    } catch (Exception ignored) {}
-                    SwingUtilities.invokeLater(() -> {
-                        if (launcher != null && launcher.isDisplayable()) {
-                            launcher.setVisible(true);
-                            launcher.switchToMainMenu();
-                        } else {
-                            new GameLauncher();
-                        }
-                    });
-                }
-            });
+        	if (!isIntentionalExit) {
+        		SwingUtilities.invokeLater(() -> {
+                    if (this.isVisible()) {
+                        appendStatus("[시스템] 서버 연결이 끊어졌습니다.\n");
+                        JOptionPane.showMessageDialog(this, "서버 연결이 끊겼습니다.");
+                        this.dispose();
+                        try {
+                            if (socket != null && !socket.isClosed()) {
+                                socket.close();
+                            }
+                        } catch (Exception ignored) {}
+                        SwingUtilities.invokeLater(() -> {
+                            if (launcher != null && launcher.isDisplayable()) {
+                                launcher.setVisible(true);
+                                launcher.switchToMainMenu();
+                            } else {
+                                new GameLauncher();
+                            }
+                        });
+                    }
+                });
+        	}
         }
     }
 
@@ -334,16 +354,44 @@ public class HiddenObjectClientGUI extends JFrame {
         sendPacket(new GamePacket(GamePacket.Type.MESSAGE, playerName, text));
         inputField.setText("");
     }
+    
+    private void updateScoreDisplay() {
+        int displayScore = "협동".equals(gameMode) ? currentTeamScore : myScore;
+        String hintText = "힌트: " + hintsRemaining + "/3 (" + ("경쟁".equals(gameMode) ? "개인" : "공유") + ")";
+        
+        // 개수 표시 텍스트 생성
+        String countText;
+        if ("협동".equals(gameMode)) {
+            // 협동: (전체 찾은 개수 / 전체 정답 수)
+            countText = "찾은 개수: " + globalFoundCount + "/" + totalAnswers;
+        } else {
+            // 경쟁: (내가 찾은 개수) | (남은 개수)
+            int remaining = Math.max(0, totalAnswers - globalFoundCount);
+            countText = "내 개수: " + myFoundCount + " (남은 개수: " + remaining + ")";
+        }
 
+        scoreArea.setText(
+            "점수: " + displayScore + "점\n" +
+            countText + "\n" +
+            hintText + "\n" +
+            "남은 시간: " + timeLeft + "초"
+        );
+    }
     private void handlePacket(GamePacket p) {
         switch (p.getType()) {
             case ROUND_START:
-                roundLabel.setText("라운드 " + p.getRound());
-             
-                int total = p.getOriginalAnswers().size();
-
-                roundHintsRemaining = p.getRemainingHints();
-                updateHintDisplay();
+            	roundLabel.setText("라운드 " + p.getRound());
+                
+                // 데이터 초기화
+                this.totalAnswers = p.getOriginalAnswers().size(); // 전체 개수 저장
+                this.hintsRemaining = p.getRemainingHints();
+                
+                if (p.getRound() == 1) {
+                    myScore = 0;
+                    myFoundCount = 0;
+                    currentTeamScore = 0;
+                    globalFoundCount = 0;
+                }
 
                 String imagePath = p.getMessage();
                 List<Rectangle> originalAnswers = p.getOriginalAnswers();
@@ -351,20 +399,26 @@ public class HiddenObjectClientGUI extends JFrame {
 
                 this.playerIndexMap = p.getPlayerIndexMap();
                 this.playerIndex = playerIndexMap.getOrDefault(playerName, 0);
+                
+                if (p.getRound() == 1) {
+                    myScore = 0;
+                    myFoundCount = 0;
+                }
 
                 if (imagePath != null && !imagePath.isEmpty()
                         && originalAnswers != null && originalDimension != null) {
                     gameBoardPanel.setRoundData(imagePath, originalAnswers, originalDimension);
                     appendStatus("=== 라운드 " + p.getRound() + " 시작 ===\n");
-                    appendStatus("[목표] 숨은 그림 " + total + "개를 모두 찾으세요!\n");
+                    appendStatus("[목표] 숨은 그림 " + totalAnswers + "개를 모두 찾으세요!\n");
                     isGameActive = true;
                 } else {
                     appendStatus("[시스템] " + p.getMessage() + "\n");
                 }
 
                 gameBoardPanel.clearMarks();
-                startCountdownTimer(120);
                 otherPlayerCursor.clear();
+                updateScoreDisplay();
+                startCountdownTimer(120);
                 break;
 
             case MOUSE_MOVE:
@@ -376,33 +430,50 @@ public class HiddenObjectClientGUI extends JFrame {
             case RESULT:
                 if (p.isCorrect()) {
                     gameBoardPanel.addMark(p.getAnswerIndex(), true, p.getSender());
-                    appendStatus("[정답] 숨은 그림을 찾았습니다!\n");
+                    globalFoundCount++;
+                    
+                    if (playerName.equals(p.getSender())) {
+                        myFoundCount++;
+                        myScore += 10;
+                    }
                 } else {
-                    gameBoardPanel.addMark(-1, false, p.getSender());
-                    appendStatus("[오답] 해당 위치에는 숨은 그림이 없습니다.\n");
+                	if ("협동".equals(gameMode) || playerName.equals(p.getSender())) {
+                        gameBoardPanel.addMarkAtPosition(p.getX(), p.getY(), false);
+                    }
+                	
+                	if (playerName.equals(p.getSender()) && p.getMessage() == null) {
+                        myScore = Math.max(0, myScore - 5);
+                    }
+                }
+                
+                if (p.getMessage() != null && !p.getMessage().isEmpty()) {
+                    appendStatus(p.getMessage() + "\n");
                 }
                 break;
 
 
             case SCORE:
-                if ("경쟁".equals(gameMode)) {
-                    
-                    String text = p.getMessage();
-                    scoreArea.setText(text);  
-                } else {
-                   
-                    String scoreText = p.getMessage();
-                    if (scoreText != null) {
-                        scoreArea.setText(scoreText);
-                        updateHintDisplay();  
+            	String msg = p.getMessage();
+                if (msg == null) break;
+                
+                if ("협동".equals(gameMode) && msg.startsWith("SCORE_COOP:")) {
+                    try {
+                        String num = msg.substring(11).trim();
+                        if (!num.isEmpty()) {
+                            currentTeamScore = Integer.parseInt(num);
+                        }
+                    } catch (Exception e) {
+                        System.out.println("점수 파싱 오류: " + e.getMessage());
                     }
                 }
+                
+                updateScoreDisplay();
                 break;
 
 
             case HINT_RESPONSE:
                 Point hintPos = p.getHintPosition();
-                roundHintsRemaining = p.getRemainingHints();
+                hintsRemaining = p.getRemainingHints();
 
                 if (hintPos != null) {
                     gameBoardPanel.addHint(hintPos);
@@ -410,7 +481,7 @@ public class HiddenObjectClientGUI extends JFrame {
                 } else {
                     appendStatus("[힌트] " + p.getMessage() + "\n");
                 }
-                updateHintDisplay();
+                updateScoreDisplay();
                 break;
 
             case MESSAGE:
@@ -438,15 +509,47 @@ public class HiddenObjectClientGUI extends JFrame {
 
             case GAME_OVER:
                 isGameActive = false;
-                if (swingTimer != null) swingTimer.stop();
-                appendStatus("[시스템] 게임이 종료되었습니다.\n");
-                if (p.getMessage() != null) {
-                    appendStatus(p.getMessage() + "\n");
+                if (swingTimer != null) {
+                    swingTimer.stop();
+                    swingTimer = null;
                 }
+                
+                msg = p.getMessage();
+                Object content;
+                
+                if (msg != null && msg.startsWith("RANKING:")) {
+                    content = createRankingPanel(msg);
+                } else {
+                    // 일반 메시지일 경우
+                    JTextArea ta = new JTextArea(msg);
+                    ta.setEditable(false);
+                    ta.setBackground(new Color(240, 240, 240));
+                    content = new JScrollPane(ta);
+                }
+
+                JOptionPane.showMessageDialog(
+                    this, 
+                    content, 
+                    "게임 종료 결과", 
+                    JOptionPane.PLAIN_MESSAGE 
+                );
 
                 UserData userData = UserData.getInstance();
                 if (userData != null) {
-                    int expGain = 30;
+                	int calcScore;
+                    
+                    if ("협동".equals(gameMode)) {
+                        // 협동: 기여도(맞힌 개수) 기반 점수 환산 (개당 10점)
+                        calcScore = myFoundCount * 10;
+                    } else {
+                        // 경쟁: 내 실제 점수 (감점 포함)
+                        calcScore = myScore;
+                    }
+                    
+                    // 싱글 플레이 공식 적용: 50 + (점수 / 2)
+                    int expGain = 50 + (calcScore / 2);
+                    if (expGain < 0) expGain = 0; // 음수 방지
+
                     userData.addExperience(expGain);
                     appendStatus("[경험치 획득: " + expGain + " EXP]\n");
                 }
@@ -476,6 +579,104 @@ public class HiddenObjectClientGUI extends JFrame {
             default:
                 break;
         }
+    }
+    
+    private JPanel createRankingPanel(String data) {
+        String[] lines = data.substring(8).split("\n");
+        
+        boolean isCoop = "협동".equals(gameMode);
+        
+        // 협동일 때 총점 표시를 위해 BoxLayout 사용
+        JPanel container = new JPanel();
+        container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
+        
+        // 협동 모드 상단에 총점 표시
+        if (isCoop && lines.length > 0) {
+            String[] firstLineParts = lines[0].split(",");
+            if (firstLineParts.length >= 4) {
+                String totalScore = firstLineParts[3]; // 첫 번째 사람의 점수 = 팀 점수
+                
+                JPanel scorePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+                JLabel scoreLabel = new JLabel("팀 총점 : " + totalScore + "점");
+                scoreLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
+                scorePanel.add(scoreLabel);
+                
+                container.add(scorePanel);
+                container.add(Box.createVerticalStrut(5));
+            }
+        }
+
+        // 협동: 2열 / 경쟁: 3열
+        int cols = isCoop ? 2 : 3;
+        JPanel listPanel = new JPanel(new GridLayout(1, cols, 10, 0));
+        
+        // 패널 생성
+        JPanel leftPanel = new JPanel(); 
+        leftPanel.setLayout(new BoxLayout(leftPanel, BoxLayout.Y_AXIS)); // 순위+닉네임
+        
+        JPanel centerPanel = new JPanel(); 
+        centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS)); // 개수
+        
+        JPanel rightPanel = null;
+        if (!isCoop) {
+            rightPanel = new JPanel(); 
+            rightPanel.setLayout(new BoxLayout(rightPanel, BoxLayout.Y_AXIS)); // 점수 (경쟁만)
+        }
+        
+        // 헤더 추가
+        addLabel(leftPanel, "순위   닉네임", SwingConstants.LEFT, true);
+        addLabel(centerPanel, "개수", SwingConstants.CENTER, true);
+        if (!isCoop) {
+            addLabel(rightPanel, "점수", SwingConstants.RIGHT, true);
+        }
+        
+        // 간격 띄우기
+        leftPanel.add(Box.createVerticalStrut(5));
+        centerPanel.add(Box.createVerticalStrut(5));
+        if (!isCoop) rightPanel.add(Box.createVerticalStrut(5));
+
+        // 데이터 추가
+        for (String line : lines) {
+            String[] parts = line.split(","); // rank, name, count, score
+            if (parts.length < 4) continue;
+            
+            int rank = Integer.parseInt(parts[0]);
+            String rankAndName = String.format(" %2d     %s", rank, parts[1]);
+            
+            addLabel(leftPanel, rankAndName, SwingConstants.LEFT, false);
+            addLabel(centerPanel, parts[2], SwingConstants.CENTER, false);
+            
+            // 경쟁 모드일 때만 점수 컬럼 추가
+            if (!isCoop) {
+                addLabel(rightPanel, parts[3], SwingConstants.RIGHT, false);
+            }
+        }
+        
+        listPanel.add(leftPanel);
+        listPanel.add(centerPanel);
+        if (!isCoop) {
+            listPanel.add(rightPanel);
+        }
+        
+        container.add(listPanel);
+        
+        return container;
+    }
+    
+    private void addLabel(JPanel panel, String text, int align, boolean isBold) {
+        JLabel label = new JLabel(text, align);
+        label.setFont(new Font("맑은 고딕", isBold ? Font.BOLD : Font.PLAIN, 14));
+        
+        // 패널 내 정렬 설정 (BoxLayout용)
+        if (align == SwingConstants.LEFT) label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        else if (align == SwingConstants.CENTER) label.setAlignmentX(Component.CENTER_ALIGNMENT);
+        else if (align == SwingConstants.RIGHT) label.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        
+        // 레이블이 패널 너비를 꽉 채우도록 설정 (정렬 적용을 위해)
+        label.setMaximumSize(new Dimension(Integer.MAX_VALUE, label.getPreferredSize().height));
+        
+        panel.add(label);
+        panel.add(Box.createVerticalStrut(3)); // 행 간격
     }
 
     private void updateHintDisplay() {
@@ -518,6 +719,7 @@ public class HiddenObjectClientGUI extends JFrame {
                     int green = Math.max(0, 200 - (30 - timeLeft) * 7);
                     timerLabel.setForeground(new Color(red, green, 0));
                 }
+                updateScoreDisplay();
                 gameBoardPanel.removeExpiredMarks();
 
                 if (timeLeft <= 0) {
@@ -669,6 +871,11 @@ public class HiddenObjectClientGUI extends JFrame {
 
         public void addHint(Point hintPos) {
             hints.add(new HintMark(hintPos));
+            repaint();
+        }
+        
+        public void addMarkAtPosition(double x, double y, boolean correct) {
+            marks.add(new GameMark(new Point((int)x, (int)y), correct, 0));
             repaint();
         }
 

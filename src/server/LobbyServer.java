@@ -92,6 +92,7 @@ public class LobbyServer {
         private ObjectInputStream in;
         private String playerName;
         private boolean isSinglePlayer = false;
+        private boolean[] singlePlayFoundStatus;
         
         private RoomManager room = null;
         
@@ -144,32 +145,46 @@ public class LobbyServer {
                         
                     } else {
                         String roomNumber = message;
-                        System.out.println("[서버] " + this.playerName + " 님이 " + roomNumber + " 방에 접속했습니다.");
+                        String requestGameType = joinPacket.getGameType();
+                        if (requestGameType == null) requestGameType = "NORMAL";
+                        String uniqueRoomKey = requestGameType + "_" + roomNumber;
+
+                        System.out.println("[서버] " + this.playerName + " 님이 " + uniqueRoomKey + " 방에 접속 시도.");
                         
                         RoomManager targetRoom;
                         synchronized(activeRooms){
-                        	targetRoom = activeRooms.get(roomNumber);
-                        	if(targetRoom == null) {
-                        		targetRoom = new RoomManager(roomNumber, gameLogic, LobbyServer.this);
-                        		activeRooms.put(roomNumber, targetRoom);
-                        	}
+                            targetRoom = activeRooms.get(uniqueRoomKey);
+                            
+                            if(targetRoom == null) {
+                                // 새 방 생성 (방 이름은 식별하기 쉽게 모드 포함)
+                                targetRoom = new RoomManager(uniqueRoomKey, gameLogic, LobbyServer.this);
+                                // ★ 방 생성 시 게임 타입을 확정지어 줍니다.
+                                targetRoom.setFixedGameType(requestGameType); 
+                                activeRooms.put(uniqueRoomKey, targetRoom);
+                            }
+                        }
+                        
+                        if (!targetRoom.getFixedGameType().equals(requestGameType)) {
+                            sendPacket(new GamePacket(GamePacket.Type.MESSAGE, "SERVER", 
+                                "오류: 해당 방은 다른 게임 모드입니다."));
+                            socket.close();
+                            return;
                         }
                         
                         if (clients.size() == 1) {
                             hostName = this.playerName;
-                            System.out.println("[서버] " + this.playerName + " 님이 방장이 되었습니다.");
                         }
                         
                         boolean success = targetRoom.addPlayer(this);
                         
                         if(success) {
-                        	this.room = targetRoom;
+                            this.room = targetRoom;
                         }
                         else {
-                        	System.out.println("[서버] " + this.playerName + "님 입장 거부");
-                        	clients.remove(this.playerName);
-                        	socket.close();
-                        	return;
+                            System.out.println("[서버] " + this.playerName + "님 입장 거부");
+                            clients.remove(this.playerName);
+                            socket.close();
+                            return;
                         }
                     }
 
@@ -200,13 +215,18 @@ public class LobbyServer {
             playerHintCount = 3; 
             gameLogic.loadRound(playerDifficulty, round);
             
+            List<Rectangle> answers = gameLogic.getOriginalAnswers(playerDifficulty, round);
+            if (answers != null) {
+                singlePlayFoundStatus = new boolean[answers.size()];
+            }
+            
             Map<String, Integer> singleIndexMap = new HashMap<>();
             singleIndexMap.put(playerName, 0);
             
             sendPacket(new GamePacket(GamePacket.Type.ROUND_START, 
                 round, 
                 gameLogic.getImagePath(playerDifficulty, round),
-                gameLogic.getOriginalAnswers(playerDifficulty, round),
+                answers,
                 gameLogic.getOriginalDimension(playerDifficulty, round),
                 singleIndexMap,
                 "협동"
@@ -228,6 +248,20 @@ public class LobbyServer {
         public String getPlayerName() { return playerName; }
         public boolean isSinglePlayer() { return isSinglePlayer; }
         public RoomManager getRoom() { return room; }
+        
+        public int getPlayerHintCount() {
+            return this.playerHintCount;
+        }
+
+        public void decrementHintCount() {
+            if (this.playerHintCount > 0) {
+                this.playerHintCount--;
+            }
+        }
+
+        public void resetHintCount() {
+            this.playerHintCount = 3; 
+        }
 
   
         private void handleDisconnect() {
@@ -265,7 +299,7 @@ public class LobbyServer {
     // ★ 패킷 처리
     private synchronized void handlePacket(ClientHandler handler, GamePacket packet) throws IOException {
         
-        System.out.println("[서버] 패킷 수신: " + packet.getType() + " from " + handler.playerName);
+        //System.out.println("[서버] 패킷 수신: " + packet.getType() + " from " + handler.playerName);
         
         if (handler.isSinglePlayer) {
             switch (packet.getType()) {
@@ -309,7 +343,7 @@ public class LobbyServer {
         String difficulty = handler.playerDifficulty;
         int round = handler.playerCurrentRound;
         
-        List<Rectangle> answers = gameLogic.getOriginalAnswers(difficulty, round);
+        List<Rectangle> answers = gameLogic.getOriginalAnswers(handler.playerDifficulty, handler.playerCurrentRound);
         if (answers == null || answers.isEmpty()) {
             handler.sendPacket(new GamePacket(
                 GamePacket.Type.MESSAGE,
@@ -320,9 +354,11 @@ public class LobbyServer {
         }
         
         List<Integer> unfoundIndices = new ArrayList<>();
-        for (int i = 0; i < answers.size(); i++) {
-            if (!gameLogic.isAnswerFound(difficulty, round, i)) {
-                unfoundIndices.add(i);
+        if (handler.singlePlayFoundStatus != null) {
+            for (int i = 0; i < answers.size(); i++) {
+                if (!handler.singlePlayFoundStatus[i]) {
+                    unfoundIndices.add(i);
+                }
             }
         }
 
@@ -365,6 +401,13 @@ public class LobbyServer {
         
         boolean isCorrect = gameLogic.checkAnswer(difficulty, round, answerIndex);
         
+        if (gameLogic.isValidIndex(difficulty, round, answerIndex)) {
+            if (handler.singlePlayFoundStatus != null && !handler.singlePlayFoundStatus[answerIndex]) {
+                handler.singlePlayFoundStatus[answerIndex] = true; // 상태 변경
+                isCorrect = true;
+            }
+        }
+        
         String resultMsg;
         
         if (isCorrect) {
@@ -382,7 +425,17 @@ public class LobbyServer {
         
         handler.sendPacket(new GamePacket(GamePacket.Type.SCORE, getScoreboardString()));
         
-        if (isCorrect && gameLogic.areAllFound(difficulty, round)) {
+        boolean allFound = true;
+        if (handler.singlePlayFoundStatus != null) {
+            for (boolean f : handler.singlePlayFoundStatus) {
+                if (!f) {
+                    allFound = false;
+                    break;
+                }
+            }
+        }
+        
+        if (isCorrect && allFound) {
             handleRoundCompleteForSinglePlayer(handler);
         }
     }

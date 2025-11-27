@@ -125,6 +125,7 @@ public class GameLauncher extends JFrame {
     public void switchToServerInput() {
         isSinglePlayer = false;
         homePanel.updateUserInfo();
+        homePanel.resetUI();
         this.gameModeType = "NORMAL";
         this.setSize(400, 450);
         cardLayout.show(mainPanel, CARD_SERVER_INPUT);
@@ -134,7 +135,8 @@ public class GameLauncher extends JFrame {
     public void switchToServerInputForFlashlight() {
         isSinglePlayer = false;
         homePanel.updateUserInfo();
-        this.gameModeType = "FLASHLIGHT";
+        homePanel.resetUI();
+        this.gameModeType = "FLASH";
         this.setSize(400, 450);
         cardLayout.show(mainPanel, CARD_SERVER_INPUT);
         setTitle("서버 접속 (그림자 모드)");
@@ -248,13 +250,15 @@ public class GameLauncher extends JFrame {
         WaitingRoom currentRoom;
         String cardName;
 
-        if ("FLASHLIGHT".equals(gameModeType)) {
+        if ("FLASH".equals(gameModeType)) {
             currentRoom = waitingRoomFlash;
             cardName = CARD_LOBBY_FLASH;
         } else {
             currentRoom = waitingRoomNormal;
             cardName = CARD_LOBBY_NORMAL;
         }
+        
+        currentRoom.resetUI();
 
         currentRoom.setConnection(out, playerName, roomNumber);
 
@@ -310,7 +314,7 @@ public class GameLauncher extends JFrame {
         switch (p.getType()) {
 
             case MESSAGE:
-                if ("FLASHLIGHT".equals(gameModeType)) {
+                if ("FLASH".equals(gameModeType)) {
                     waitingRoomFlash.appendChat(p.getSender() + ": " + p.getMessage() + "\n");
                 } else {
                     waitingRoomNormal.appendChat(p.getSender() + ": " + p.getMessage() + "\n");
@@ -318,7 +322,7 @@ public class GameLauncher extends JFrame {
                 break;
 
             case LOBBY_UPDATE:
-                if ("FLASHLIGHT".equals(gameModeType)) {
+                if ("FLASH".equals(gameModeType)) {
                     waitingRoomFlash.updateLobbyInfo(
                             p.getHostName(),
                             p.getPlayerReadyStatus(),
