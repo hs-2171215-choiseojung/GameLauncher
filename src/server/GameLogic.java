@@ -182,9 +182,6 @@ public class GameLogic {
     private void loadAnswersFor_Normal_3() {
         String key = "보통_3";
         List<Rectangle> answers = new ArrayList<>();
-
-        
-        
         
         answers.add(new Rectangle(133, 831, 40, 40));
         answers.add(new Rectangle(122, 512, 40, 40));
@@ -208,7 +205,6 @@ public class GameLogic {
     private void loadAnswersFor_Hard_1() {
         String key = "어려움_1";
         List<Rectangle> answers = new ArrayList<>();
-        
       
         answers.add(new Rectangle(634, 61, 40, 40));
         answers.add(new Rectangle(66, 223, 40, 40));

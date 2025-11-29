@@ -34,7 +34,7 @@ public class RoomManager {
 
     private boolean[] foundStatus;
     
-    // 라운드당 힌트 3회
+   
     private int roundHintCount = 3;
 
     // 아이템 관련
@@ -322,10 +322,10 @@ public class RoomManager {
     
     public void setFixedGameType(String type) {
         this.fixedGameType = type;
-        this.gameType = type; // 초기값 설정
+        this.gameType = type;
         
         if ("FLASHLIGHT".equals(type)) {
-            // 플래시 모드 기본 설정이 필요하다면 여기에 작성
+           
         }
     }
     
@@ -333,7 +333,7 @@ public class RoomManager {
         return fixedGameType;
     }
 
-    // 힌트 처리
+    // 아직 찾지 않은 정답 중 하나를 선택하여 힌트로 전달한다.
     private void handleHintRequest(ClientHandler handler) {
         String playerName = handler.getPlayerName();
         boolean isCompetitive = "경쟁".equals(currentGameMode);
@@ -365,15 +365,15 @@ public class RoomManager {
         Point hintPos = gameLogic.getAnswerCenter(currentDifficulty, currentRound, idx);
 
         if (isCompetitive) {
-            handler.decrementHintCount(); // 개인 차감
+            handler.decrementHintCount(); 
             int currentScore = scores.getOrDefault(playerName, 0);
-            scores.put(playerName, Math.max(0, currentScore - 5)); // 점수 차감
+            scores.put(playerName, Math.max(0, currentScore - 5));
         } else {
-            roundHintCount--; // 공용 차감
+            roundHintCount--;
             currentHints = roundHintCount;
         }
 
-        // 4. 패킷 전송 (경쟁: 개인, 협동: 전체)
+       
         GamePacket hintPacket = new GamePacket(
             GamePacket.Type.HINT_RESPONSE,
             hintPos,
@@ -382,30 +382,27 @@ public class RoomManager {
         );
 
         if (isCompetitive) {
-            handler.sendPacket(hintPacket); // 나에게만 전송
+            handler.sendPacket(hintPacket); 
         } else {
-            broadcast(hintPacket); // 모두에게 전송
+            broadcast(hintPacket); 
         }
     }
 
-    // 클릭 처리
+    // 정답/오답 판정 → 점수/패널티 적용 → 전체 클라이언트로 결과 동기화
     private void processClick(ClientHandler handler, GamePacket packet) {
         String name = handler.getPlayerName();
         int index = packet.getAnswerIndex();
         
         boolean correct = false;
-        boolean alreadyFound = false; // 이미 찾았는지 체크하는 플래그
+        boolean alreadyFound = false; 
 
-        // 1. 유효한 정답 인덱스인지 확인
         if (index >= 0 && gameLogic.isValidIndex(currentDifficulty, currentRound, index)) {
             if (foundStatus != null) {
                 if (!foundStatus[index]) {
-                    // 아직 안 찾음 -> 정답 처리
                     foundStatus[index] = true;
                     correct = true;
                     System.out.println("[RoomManager] " + roomName + ": " + index + "번 정답 찾음!");
                 } else {
-                    // 이미 누군가 찾음 -> 이미 찾음 처리
                     alreadyFound = true;
                 }
             }
@@ -448,7 +445,6 @@ public class RoomManager {
         }
         broadcast(new GamePacket(GamePacket.Type.SCORE, "SERVER", sb.toString()));
 
-        // 4. 메시지 결정
         String msg = null;
         if (correct) {
             msg = "[정답] " + name + "님이 숨은 그림을 찾았습니다!";
@@ -456,7 +452,7 @@ public class RoomManager {
             msg = "[알림] 이미 찾은 그림입니다.";
         }
 
-        // 5. 결과 전송
+      
         GamePacket resultPacket = new GamePacket(
             GamePacket.Type.RESULT,
             name,
@@ -470,7 +466,6 @@ public class RoomManager {
 
         broadcast(resultPacket);
 
-        // 6. 라운드 종료 체크
         if (correct && areAllFound()) {
             handleRoundComplete();
         }
@@ -535,7 +530,7 @@ public class RoomManager {
     
     private String getRankingString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("RANKING:"); // 데이터 식별자
+        sb.append("RANKING:");
         
         // 정렬 (점수 -> 개수 내림차순)
         List<String> players = new ArrayList<>(scores.keySet());
@@ -587,7 +582,7 @@ public class RoomManager {
         activeItems.clear();
         itemTypes.clear();
     }
-
+    // 라운드 중 랜덤 아이템 생성 → 전체 클라이언트에게 브로드캐스트
     private void spawnItem() {
         int id = nextItemId++;
 

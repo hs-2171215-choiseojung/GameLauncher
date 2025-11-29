@@ -14,7 +14,6 @@ public class InfoPanel extends JPanel {
     // NORMAL / FLASH 구분
     private final String gameType;
 
-    // UI 컴포넌트
     private JComboBox<String> difficultyCombo;
     private JRadioButton coopRadio;
     private JRadioButton pvpRadio;
@@ -37,7 +36,6 @@ public class InfoPanel extends JPanel {
 
         setLayout(new BorderLayout(5, 5));
 
-        // 플레이어 목록
         playerListArea = new JTextArea("플레이어:\n");
         playerListArea.setEditable(false);
         playerListArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
@@ -45,7 +43,6 @@ public class InfoPanel extends JPanel {
         scroll.setPreferredSize(new Dimension(200, 150));
         add(scroll, BorderLayout.NORTH);
 
-        // 설정 패널
         JPanel settingsPanel = new JPanel();
         settingsPanel.setLayout(new BoxLayout(settingsPanel, BoxLayout.Y_AXIS));
         settingsPanel.setBorder(BorderFactory.createTitledBorder("게임 설정"));
@@ -71,7 +68,6 @@ public class InfoPanel extends JPanel {
         readyButton = new JButton("게임 준비");
         startButton = new JButton("게임 시작");
 
-        // 기본값 → 게스트 기준
         readyButton.setVisible(true);
         readyButton.setEnabled(true);
 
@@ -87,7 +83,6 @@ public class InfoPanel extends JPanel {
 
         add(settingsPanel, BorderLayout.CENTER);
 
-        // 리스너 설정
         readyButton.addActionListener(e -> toggleReady());
 
         startButton.addActionListener(e -> {
@@ -156,7 +151,7 @@ public class InfoPanel extends JPanel {
                          String gameMode) {
 
         
-        // 🔥 방장 판단
+        // 방장 판단
         isHost = hostName != null && hostName.equals(playerName);
 
         // 플레이어 목록 갱신
@@ -202,7 +197,6 @@ public class InfoPanel extends JPanel {
             pvpRadio.setEnabled(false);
         }
 
-        // 설정값 반영
         difficultyCombo.removeActionListener(settingsListener);
         coopRadio.removeActionListener(settingsListener);
         pvpRadio.removeActionListener(settingsListener);

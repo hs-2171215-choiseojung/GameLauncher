@@ -35,7 +35,6 @@ public class SinglePlayerGUI extends JFrame {
     private int totalAnswers = 0;
     private int currentRound = 1;
     
-    // ★ 힌트 관련
     private int hintsRemaining = 3;
     
     private Image singleCursorImage;
@@ -125,7 +124,7 @@ public class SinglePlayerGUI extends JFrame {
         scoreArea.setForeground(Color.GREEN);
         scoreArea.setMargin(new Insets(5, 5, 5, 5));
         scoreArea.setText("점수: 0점\n찾은 개수: 0/0\n힌트: 3/3\n");
-        scoreArea.setRows(4); // ★ 힌트 표시 추가로 한 줄 더
+        scoreArea.setRows(4); 
         rightPanel.add(scoreArea, BorderLayout.SOUTH);
         centerPanel.add(rightPanel, BorderLayout.EAST);
         add(centerPanel, BorderLayout.CENTER);
@@ -182,7 +181,7 @@ public class SinglePlayerGUI extends JFrame {
         });
     }
 
-    // ★ 힌트 요청
+ 
     private void requestHint() {
         if (!isGameActive) {
             appendStatus("[힌트] 게임이 진행 중일 때만 사용할 수 있습니다.\n");
@@ -226,7 +225,6 @@ public class SinglePlayerGUI extends JFrame {
                 currentRound = p.getRound();
                 roundLabel.setText("라운드 " + currentRound);
                 
-                // ★ 라운드 시작 시 힌트 초기화
                 hintsRemaining = 3;
                 
                 String imagePath = p.getMessage(); 
@@ -281,7 +279,6 @@ public class SinglePlayerGUI extends JFrame {
                 }
                 break;
                 
-            // ★ 힌트 응답 처리
             case HINT_RESPONSE:
                 System.out.println("[SinglePlayerGUI] 힌트 응답 수신");
                 Point hintPos = p.getHintPosition();
@@ -340,7 +337,7 @@ public class SinglePlayerGUI extends JFrame {
         scoreArea.setText(
             "점수: " + score + "점\n" +
             "찾은 개수: " + foundCount + "/" + totalAnswers + "\n" +
-            "힌트: " + hintsRemaining + "/3\n" + // ★ 힌트 표시
+            "힌트: " + hintsRemaining + "/3\n" + 
             "남은 시간: " + timeLeft + "초"
         );
     }
@@ -432,16 +429,15 @@ public class SinglePlayerGUI extends JFrame {
         private List<Rectangle> originalAnswers;
         private Dimension originalDimension;
         private final List<GameMark> marks = new ArrayList<>();
-        private final List<HintMark> hints = new ArrayList<>(); // ★ 힌트 마크
-        private Timer blinkTimer; // ★ 반짝임 효과
+        private final List<HintMark> hints = new ArrayList<>(); 
+        private Timer blinkTimer;
         private boolean blinkState = true;
         private static final int RADIUS = 20; 
         
         public GameBoardPanel() {
             backgroundImage = null; 
             originalAnswers = new ArrayList<>();
-            
-            // ★ 힌트 반짝임 효과
+           
             blinkTimer = new Timer(500, e -> {
                 blinkState = !blinkState;
                 repaint();
@@ -488,7 +484,6 @@ public class SinglePlayerGUI extends JFrame {
             });
         }
         
-        // ★ 힌트 추가
         public void addHint(Point hintPos) {
             hints.add(new HintMark(hintPos));
             repaint();
@@ -520,7 +515,7 @@ public class SinglePlayerGUI extends JFrame {
         
         public void clearMarks() {
             marks.clear();
-            hints.clear(); // ★ 힌트도 초기화
+            hints.clear();
             repaint();
         }
         
@@ -534,7 +529,7 @@ public class SinglePlayerGUI extends JFrame {
             
             marks.add(new GameMark(center, correct));
             
-            // ★ 정답을 찾으면 해당 위치의 힌트 제거
+          
             if (correct) {
                 hints.removeIf(h -> h.position.distance(center) < 30);
             }
@@ -568,21 +563,19 @@ public class SinglePlayerGUI extends JFrame {
 
                 g2.drawImage(backgroundImage, offsetX, offsetY, drawW, drawH, this);
 
-                // ★ 힌트 그리기 (반짝임 효과)
+              
                 if (blinkState) {
                     for (HintMark hint : hints) {
                         int hintX = (int) (offsetX + hint.position.x * scale);
                         int hintY = (int) (offsetY + hint.position.y * scale);
                         
-                        // 노란색 반짝이는 원
                         g2.setColor(new Color(255, 255, 0, 200));
                         g2.setStroke(new BasicStroke(4));
                         g2.draw(new Ellipse2D.Double(
                                 hintX - RADIUS - 5, hintY - RADIUS - 5,
                                 (RADIUS + 5) * 2, (RADIUS + 5) * 2
                         ));
-                        
-                        // 별 표시
+                      
                         g2.setColor(Color.YELLOW);
                         g2.setFont(new Font("맑은 고딕", Font.BOLD, 30));
                         g2.drawString("★", hintX - 15, hintY + 10);
@@ -630,8 +623,7 @@ public class SinglePlayerGUI extends JFrame {
                 }
             }
         }
-        
-        // ★ 힌트 마크 클래스
+ 
         class HintMark {
             Point position;
             HintMark(Point p) {

@@ -10,7 +10,8 @@ import java.util.Map;
 public class GamePacket implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
+    
+ // 클라이언트-서버 간 통신에 사용되는 패킷 타입 정의
     public enum Type {
         JOIN,
         CLICK,
@@ -30,59 +31,59 @@ public class GamePacket implements Serializable {
         ITEM_PICKUP,
         PLAYER_FREEZE,
         TIME_BONUS,
-        HINT_REQUEST,    // ★ 추가
-        HINT_RESPONSE    // ★ 추가
+        HINT_REQUEST,    
+        HINT_RESPONSE    
     }
 
     private final Type type;
     private final String sender;
 
-    // 2. 메세지/라운드/정답
+    // 1. 메세지/라운드/정답
     private String message;
     private int round;
     private int answerIndex;
     private boolean correct;
 
-    // 3. 그림/정답 원본
+    // 2. 그림/정답 원본
     private List<Rectangle> originalAnswers;
     private Dimension originalDimension;
 
-    // 4. 게임 설정
+    // 3. 게임 설정
     private String gameType;
     private String difficulty;
     private String gameMode;
     private String roomNumber;
     private String hostName;
 
-    // 5. 상태 맵들
+    // 4. 상태 맵들
     private Map<String, Boolean> playerReadyStatus;
     private Map<String, Integer> playerIndexMap;
 
-    // 6. 마우스 관련
+    // 5. 마우스 관련
     private int playerIndex;
     private double x;
     private double y;
 
-    // 7. 커서 인덱스
+    // 6. 커서 인덱스
     private int cursorIndex;
 
-    // 8. 아이템
+    // 7. 아이템
     private int itemId;
     private Point itemPosition;
     private String itemType;
 
-    // 9. 얼리기
+    // 8. 얼리기
     private int freezeDuration;
     private boolean freeze;
 
-    // 10. 기타 (ready)
+    // 9. 기타 (ready)
     private boolean isReady;
 
-    // ★ 11. 힌트 관련
+    // 10. 힌트 관련
     private Point hintPosition;
     private int remainingHints;
 
-    // --- 생성자들 ---
+    
 
     // JOIN
     public GamePacket(Type type, String sender, String roomNumber, boolean isJoin) {
@@ -198,7 +199,7 @@ public class GamePacket implements Serializable {
         this.cursorIndex = cursorIndex;
     }
 
-    // MOUSE_MOVE (기존 - 하위 호환성)
+    // MOUSE_MOVE 
     public GamePacket(Type type, String sender, int playerIndex, double x, double y) {
         this(type, sender, playerIndex, x, y, 1);
     }
@@ -235,7 +236,7 @@ public class GamePacket implements Serializable {
         this.freeze = freeze;
     }
 
-    // ★ HINT_RESPONSE (힌트 응답 - 위치와 남은 횟수)
+    // HINT_RESPONSE (힌트 응답 - 위치와 남은 횟수)
     public GamePacket(Type type, Point hintPosition, int remainingHints, String message) {
         this.type = type;
         this.sender = "SERVER";
@@ -249,7 +250,7 @@ public class GamePacket implements Serializable {
         this.remainingHints = hints;
     }
 
-    // --- Getter ---
+   
     public Type getType() { return type; }
     public String getSender() { return sender; }
     public String getMessage() { return message; }
@@ -296,7 +297,6 @@ public class GamePacket implements Serializable {
         this.gameType = gameType;
     }
 
-    // ★ 힌트 관련 getter
     public Point getHintPosition() { return hintPosition; }
     public int getRemainingHints() { return remainingHints; }
 }

@@ -6,7 +6,7 @@ import java.util.Map;
 import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 
-// 사용자 데이터 (닉네임, 레벨, 경험치) 관리 클래스
+
 public class UserData implements Serializable {
     private static final long serialVersionUID = 1L;
     private static final String ACCOUNTS_FILE = "accounts.dat";
@@ -17,13 +17,12 @@ public class UserData implements Serializable {
     private int level;
     private int experience;
     
-    // 모든 계정 정보 (닉네임 -> UserData)
+   
     private static Map<String, UserData> allAccounts = new HashMap<>();
     
     // 현재 로그인한 사용자
     private static UserData instance = null;
     
- // 4. 생성자 수정
     private UserData(String nickname, String password) {
         this.nickname = nickname;
         this.passwordHash = hashPassword(password);
@@ -32,11 +31,11 @@ public class UserData implements Serializable {
     }
 
     
-    // 저장된 데이터 로드 또는 새로 생성
+
     public static UserData getInstance() {
         if (instance == null) {
             loadAllAccounts();
-            // 마지막 로그인 정보 확인
+            
             String lastLoginNickname = loadLastLogin();
             if (lastLoginNickname != null && allAccounts.containsKey(lastLoginNickname)) {
                 instance = allAccounts.get(lastLoginNickname);
@@ -46,12 +45,12 @@ public class UserData implements Serializable {
         return instance;
     }
     
-    // 회원가입 (새 계정 생성)
+    // 회원가입 
     public static boolean register(String nickname, String password) {
         loadAllAccounts();
         
         if (allAccounts.containsKey(nickname)) {
-            return false; // 이미 존재하는 닉네임
+            return false; 
         }
         
         UserData newUser = new UserData(nickname, password);
@@ -79,7 +78,7 @@ public class UserData implements Serializable {
         return allAccounts.containsKey(nickname);
     }
     
- // 3. 비밀번호 해싱 메서드 추가
+    //비밀번호 해싱
     private static String hashPassword(String password) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -149,7 +148,7 @@ public class UserData implements Serializable {
         }
     }
     
-    // 경험치 추가 (레벨업 자동 계산)
+    // 경험치 추가 (레벨업 자동 계산!)
     public void addExperience(int exp) {
         this.experience += exp;
         
@@ -160,31 +159,31 @@ public class UserData implements Serializable {
         saveAllAccounts();
     }
     
-    // 다음 레벨까지 필요한 경험치
+ 
     public int getExpForNextLevel() {
         return 100 * level;
     }
     
-    // Getter
+  
     public String getNickname() { return nickname; }
     public int getLevel() { return level; }
     public int getExperience() { return experience; }
     
-    // 비밀번호 변경
+   
     public void changePassword(String oldPassword, String newPassword) throws Exception {
-        if (!this.passwordHash.equals(hashPassword(oldPassword))) { // 변경
+        if (!this.passwordHash.equals(hashPassword(oldPassword))) { 
             throw new Exception("현재 비밀번호가 일치하지 않습니다.");
         }
-        this.passwordHash = hashPassword(newPassword); // 변경
+        this.passwordHash = hashPassword(newPassword);
         saveAllAccounts();
     }
     
-    // 로그아웃 (인스턴스 초기화 + 마지막 로그인 정보 삭제)
+    // 로그아웃 
     public static void logout() {
         if (instance != null) {
             saveAllAccounts();
             instance = null;
-            clearLastLogin(); // 로그아웃 시 자동 로그인 정보 삭제
+            clearLastLogin(); 
         }
     }
 }

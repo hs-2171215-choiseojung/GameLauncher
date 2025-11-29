@@ -18,7 +18,6 @@ public class MyPagePanel extends JPanel {
         setBorder(new EmptyBorder(30, 30, 30, 30));
         setBackground(new Color(245, 245, 245));
         
-        // 상단: 타이틀과 뒤로가기
         JPanel titlePanel = new JPanel(new BorderLayout());
         titlePanel.setOpaque(false);
         
@@ -35,13 +34,11 @@ public class MyPagePanel extends JPanel {
         
         add(titlePanel, BorderLayout.NORTH);
         
-        // 중앙: 사용자 정보
         JPanel infoPanel = new JPanel();
         infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
         infoPanel.setOpaque(false);
         infoPanel.setBorder(new EmptyBorder(30, 50, 30, 50));
         
-        // 프로필 카드
         JPanel profileCard = new JPanel();
         profileCard.setLayout(new BoxLayout(profileCard, BoxLayout.Y_AXIS));
         profileCard.setBackground(Color.WHITE);
@@ -50,15 +47,13 @@ public class MyPagePanel extends JPanel {
             new EmptyBorder(30, 30, 30, 30)
         ));
         
-        // 닉네임
-        JPanel nicknamePanel = createInfoRow("닉네임");
+        JPanel nicknamePanel = createInfoRow("아이디");
         nicknameLabel = new JLabel("Guest");
         nicknameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         nicknamePanel.add(nicknameLabel);
         profileCard.add(nicknamePanel);
         profileCard.add(Box.createRigidArea(new Dimension(0, 20)));
         
-        // 레벨
         JPanel levelPanel = createInfoRow("레벨");
         levelLabel = new JLabel("Lv. 1");
         levelLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
@@ -67,7 +62,6 @@ public class MyPagePanel extends JPanel {
         profileCard.add(levelPanel);
         profileCard.add(Box.createRigidArea(new Dimension(0, 20)));
         
-        // 경험치
         JPanel expPanel = new JPanel();
         expPanel.setLayout(new BoxLayout(expPanel, BoxLayout.Y_AXIS));
         expPanel.setOpaque(false);
@@ -102,7 +96,6 @@ public class MyPagePanel extends JPanel {
         infoPanel.add(profileCard);
         add(infoPanel, BorderLayout.CENTER);
         
-        // 하단: 버튼들
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         buttonPanel.setOpaque(false);
         

@@ -24,11 +24,8 @@ public class LobbyServer {
     private ServerSocket listener = null;
 
     private final Map<String, ClientHandler> clients = new ConcurrentHashMap<>();
-    
     private final Map<String, Boolean> playerReadyStatus = new ConcurrentHashMap<>();
-    
     private final Map<String, Integer> singlePlayScores = new ConcurrentHashMap<>();
-    
     private final Map<String, RoomManager> activeRooms = new ConcurrentHashMap<>();
     
     private GameLogic gameLogic;
@@ -99,7 +96,7 @@ public class LobbyServer {
         // 1인 전용
         private String playerDifficulty = "쉬움";
         private int playerCurrentRound = 1;
-        private int playerHintCount = 3; // ★ 힌트 카운트
+        private int playerHintCount = 3;
 
         public ClientHandler(Socket socket) {
             this.socket = socket;
@@ -135,7 +132,7 @@ public class LobbyServer {
                         String difficulty = joinPacket.getMessage().replace("SINGLE_", "");
                         playerDifficulty = difficulty;
                         playerCurrentRound = 1;
-                        playerHintCount = 3; // ★ 힌트 초기화
+                        playerHintCount = 3; 
                         System.out.println("[서버] " + this.playerName + " 님이 1인 플레이로 접속 (난이도: " + difficulty + ")");
                         
                         clients.put(this.playerName, this);
@@ -156,9 +153,7 @@ public class LobbyServer {
                             targetRoom = activeRooms.get(uniqueRoomKey);
                             
                             if(targetRoom == null) {
-                                // 새 방 생성 (방 이름은 식별하기 쉽게 모드 포함)
                                 targetRoom = new RoomManager(uniqueRoomKey, gameLogic, LobbyServer.this);
-                                // ★ 방 생성 시 게임 타입을 확정지어 줍니다.
                                 targetRoom.setFixedGameType(requestGameType); 
                                 activeRooms.put(uniqueRoomKey, targetRoom);
                             }
@@ -296,10 +291,9 @@ public class LobbyServer {
         }
     }
     
-    // ★ 패킷 처리
+    // 각 클라이언트와 1:1로 통신하며 패킷을 송수신하는 스레드
     private synchronized void handlePacket(ClientHandler handler, GamePacket packet) throws IOException {
         
-        //System.out.println("[서버] 패킷 수신: " + packet.getType() + " from " + handler.playerName);
         
         if (handler.isSinglePlayer) {
             switch (packet.getType()) {
@@ -309,7 +303,7 @@ public class LobbyServer {
                 case TIMER_END:
                     handleTimerEndForSinglePlayer(handler);
                     break;
-                // ★ 힌트 요청
+               
                 case HINT_REQUEST:
                     System.out.println("[서버] 힌트 요청 감지: " + handler.playerName);
                     handleHintForSinglePlayer(handler);

@@ -46,8 +46,8 @@ public class NicknameSetupPanel extends JPanel {
         centerPanel.setOpaque(false);
         centerPanel.setBorder(new EmptyBorder(50, 50, 50, 50));
         
-        // 닉네임
-        JLabel nicknameLabel = new JLabel("닉네임 (2~12자)");
+        // 아이디
+        JLabel nicknameLabel = new JLabel("아이디 (2~12자)");
         nicknameLabel.setFont(new Font("맑은 고딕", Font.PLAIN, 14));
         nicknameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         centerPanel.add(nicknameLabel);
@@ -120,7 +120,7 @@ public class NicknameSetupPanel extends JPanel {
         
         if (nickname.isEmpty() || password.isEmpty()) {
             JOptionPane.showMessageDialog(this,
-                "닉네임과 비밀번호를 모두 입력하세요.",
+                "아이디와 비밀번호를 모두 입력하세요.",
                 "입력 오류",
                 JOptionPane.WARNING_MESSAGE);
             return;
@@ -133,7 +133,7 @@ public class NicknameSetupPanel extends JPanel {
                 launcher.switchToMainMenu();
             } else {
                 JOptionPane.showMessageDialog(this,
-                    "닉네임 또는 비밀번호가 일치하지 않습니다.",
+                    "아이디 또는 비밀번호가 일치하지 않습니다.",
                     "로그인 실패",
                     JOptionPane.ERROR_MESSAGE);
                 passwordField.setText("");
@@ -154,13 +154,13 @@ public class NicknameSetupPanel extends JPanel {
         
         // 유효성 검사
         if (nickname.isEmpty() || password.isEmpty()) {
-            statusLabel.setText("닉네임과 비밀번호를 입력하세요");
+            statusLabel.setText("아이디와 비밀번호를 입력하세요");
             statusLabel.setForeground(Color.RED);
             return;
         }
         
         if (nickname.length() < 2 || nickname.length() > 12) {
-            statusLabel.setText("닉네임은 2~12자 사이여야 합니다");
+            statusLabel.setText("아이디는 2~12자 사이여야 합니다");
             statusLabel.setForeground(Color.RED);
             return;
         }
@@ -173,7 +173,7 @@ public class NicknameSetupPanel extends JPanel {
         
         // 특수문자 검사
         if (!nickname.matches("^[a-zA-Z0-9가-힣_]+$")) {
-            statusLabel.setText("닉네임에는 영문, 한글, 숫자, _ 만 사용 가능합니다");
+            statusLabel.setText("아이디에는 영문, 한글, 숫자, _ 만 사용 가능합니다");
             statusLabel.setForeground(Color.RED);
             return;
         }
@@ -184,7 +184,7 @@ public class NicknameSetupPanel extends JPanel {
             statusLabel.setForeground(new Color(34, 139, 34));
             passwordField.setText("");
         } else {
-            statusLabel.setText("이미 사용 중인 닉네임입니다");
+            statusLabel.setText("이미 사용 중인 아이디입니다");
             statusLabel.setForeground(Color.RED);
             nicknameField.selectAll();
         }

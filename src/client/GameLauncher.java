@@ -101,9 +101,7 @@ public class GameLauncher extends JFrame {
         setVisible(true);
     }
 
-    // ===============================
     // 기본 설정 & 화면 전환
-    // ===============================
 
     public void setGameModeType(String type) { this.gameModeType = type; }
     public String getGameModeType() { return gameModeType; }
@@ -149,9 +147,7 @@ public class GameLauncher extends JFrame {
         setTitle("마이페이지");
     }
 
-    // ===============================
     // 1인 플레이 시작 (싱글 NORMAL)
-    // ===============================
     public void startSinglePlayerGame() {
         isSinglePlayer = true;
         UserData userData = UserData.getInstance();
@@ -230,10 +226,7 @@ public class GameLauncher extends JFrame {
     }
 
    
-
-    // ===============================
-    // 멀티: 대기방 입장 (첫 패킷 넘겨 받는 버전)
-    // ===============================
+    // 멀티: 대기방 입장 
     public void switchToLobby(Socket socket,
                               ObjectOutputStream out,
                               ObjectInputStream in,
@@ -276,9 +269,7 @@ public class GameLauncher extends JFrame {
         listenerThread.start();
     }
 
-    // ===============================
     // 대기방에서 서버 리스너
-    // ===============================
     private void listenFromServer() {
         isDisconnect = false;
 
@@ -307,9 +298,7 @@ public class GameLauncher extends JFrame {
         }
     }
 
-    // ===============================
     // 패킷 처리
-    // ===============================
     private void handlePacket(GamePacket p) {
         switch (p.getType()) {
 
@@ -371,9 +360,8 @@ public class GameLauncher extends JFrame {
         }
     }
 
-    // ===============================
+   
     // 서버로 시작 요청
-    // ===============================
     public void requestStartGame(String difficulty, String mode, String gameType) {
         try {
             GamePacket startPacket = new GamePacket(
@@ -414,9 +402,7 @@ public class GameLauncher extends JFrame {
         return playerName;
     }
 
-    // ===============================
     // 연결 해제 & 메인 메뉴 복귀
-    // ===============================
     private void disconnectAndReturnToMenu() {
         isDisconnect = true;
 

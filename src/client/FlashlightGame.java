@@ -159,7 +159,6 @@ public class FlashlightGame extends JFrame implements KeyListener {
         }
 
         if (cursorImageCache.containsKey(idx)) {
-            //System.out.println("[FlashlightGame] 캐시에서 커서" + idx + " 이미지 로드");
             return cursorImageCache.get(idx);
         }
 
@@ -251,7 +250,7 @@ public class FlashlightGame extends JFrame implements KeyListener {
         scoreArea.setBackground(Color.BLACK);
         scoreArea.setForeground(Color.GREEN);
         scoreArea.setMargin(new Insets(5, 5, 5, 5));
-        scoreArea.setRows(3); // 3줄 확보
+        scoreArea.setRows(3);
         
         updateScoreDisplay();
         
@@ -447,7 +446,7 @@ public class FlashlightGame extends JFrame implements KeyListener {
 
         if (moved) {
             long currentTime = System.currentTimeMillis();
-            if (currentTime - lastSendTime > 50) { // 50ms 딜레이
+            if (currentTime - lastSendTime > 50) { 
                 sendCursorMove();
                 lastSendTime = currentTime;
             }
@@ -579,7 +578,7 @@ public class FlashlightGame extends JFrame implements KeyListener {
             case RESULT:
             	if (p.isCorrect()) {
                     gameBoardPanel.addMark(p.getAnswerIndex(), true, p.getSender());
-                    globalFoundCount++; // 전체 개수 증가
+                    globalFoundCount++; 
                     
                     if (playerName.equals(p.getSender())) {
                         foundCount++;
@@ -605,7 +604,7 @@ public class FlashlightGame extends JFrame implements KeyListener {
                         if (!num.isEmpty()) currentTeamScore = Integer.parseInt(num);
                     } catch (Exception e) {}
                 } else {
-                    parseScore(msg); // 경쟁은 기존 파싱 로직
+                    parseScore(msg); 
                 }
                 updateScoreDisplay();
                 break;
@@ -746,7 +745,7 @@ public class FlashlightGame extends JFrame implements KeyListener {
         if (isCoop && lines.length > 0) {
             String[] firstLineParts = lines[0].split(",");
             if (firstLineParts.length >= 4) {
-                String totalScore = firstLineParts[3]; // 첫 번째 사람의 점수 = 팀 점수
+                String totalScore = firstLineParts[3]; 
                 
                 JPanel scorePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
                 JLabel scoreLabel = new JLabel("팀 총점 : " + totalScore + "점");
@@ -958,7 +957,7 @@ public class FlashlightGame extends JFrame implements KeyListener {
     private void updateScoreDisplay() {
         int displayScore = "협동".equals(gameMode) ? currentTeamScore : score;
         
-        // 개수 표시 로직
+       
         String countText;
         if ("협동".equals(gameMode)) {
             countText = "찾은 개수: " + globalFoundCount + "/" + totalAnswers;
