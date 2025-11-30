@@ -333,12 +333,12 @@ public class RoomManager {
         return fixedGameType;
     }
 
-    // 아직 찾지 않은 정답 중 하나를 선택하여 힌트로 전달한다.
+    // 아직 찾지 않은 정답 중 하나를 선택하여 힌트로 전달
     private void handleHintRequest(ClientHandler handler) {
         String playerName = handler.getPlayerName();
         boolean isCompetitive = "경쟁".equals(currentGameMode);
 
-        // 1. 힌트 개수 체크 (경쟁: 개인, 협동: 공용)
+        // 힌트 개수 체크 (경쟁: 개인, 협동: 공용)
         int currentHints = isCompetitive ? handler.getPlayerHintCount() : roundHintCount;
 
         if (currentHints <= 0) {
@@ -346,7 +346,7 @@ public class RoomManager {
             return;
         }
 
-        // 2. 미발견 정답 찾기
+        // 미발견 정답 찾기
         List<Rectangle> answers = gameLogic.getOriginalAnswers(currentDifficulty, currentRound);
         List<Integer> unfound = new ArrayList<>();
         if (foundStatus != null) {
@@ -360,12 +360,13 @@ public class RoomManager {
             return;
         }
 
-        // 3. 힌트 좌표 선정 및 차감
+        // 힌트 좌표 선정 및 차감
         int idx = unfound.get(random.nextInt(unfound.size()));
         Point hintPos = gameLogic.getAnswerCenter(currentDifficulty, currentRound, idx);
 
         if (isCompetitive) {
             handler.decrementHintCount(); 
+            currentHints = handler.getPlayerHintCount();
             int currentScore = scores.getOrDefault(playerName, 0);
             scores.put(playerName, Math.max(0, currentScore - 5));
         } else {
@@ -491,6 +492,10 @@ public class RoomManager {
             foundStatus = new boolean[totalAnswers];
             
             roundHintCount = 3;
+            
+            for (ClientHandler h : clients.values()) {
+                h.resetHintCount();
+            }
 
             for (String p : clients.keySet()) {
                 GamePacket next = new GamePacket(

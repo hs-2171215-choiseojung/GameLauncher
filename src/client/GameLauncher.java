@@ -331,27 +331,25 @@ public class GameLauncher extends JFrame {
             case ROUND_START:
                 this.setVisible(false);
 
-                String gameType = p.getGameType();
+                String mode = p.getGameMode(); // "협동" or "경쟁"
+                if (mode == null) mode = "경쟁"; // 기본값
 
-                if ("FLASH".equalsIgnoreCase(gameType)) {
-                    new FlashlightGame(
-                            socket,
-                            in,
-                            out,
-                            playerName,
-                            gameType, p,
-                            this
-                    );
+                String type = p.getGameType(); // "NORMAL" or "FLASH"
+                if (type == null) type = "NORMAL";
+
+                boolean isFlash = type.equalsIgnoreCase("FLASH") || type.equalsIgnoreCase("FLASHLIGHT");
+
+                boolean isSingle = type.toUpperCase().contains("SINGLE") || mode.toUpperCase().contains("SINGLE");
+
+                if (isFlash) {
+                    // Flash 모드 진입
+                    new FlashlightGame(socket, in, out, playerName, selectedDifficulty, p, this);
+                } else if (isSingle) {
+                    // 싱글 모드 진입
+                    new SinglePlayerGUI(socket, in, out, playerName, selectedDifficulty, p, this);
                 } else {
-                    new HiddenObjectClientGUI(
-                            socket,
-                            in,
-                            out,
-                            playerName,
-                            selectedDifficulty,
-                            p,
-                            this
-                    );
+                    // 일반 멀티 모드 진입
+                    new HiddenObjectClientGUI(socket, in, out, playerName, p, this);
                 }
                 break;
 
