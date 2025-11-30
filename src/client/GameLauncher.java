@@ -137,7 +137,7 @@ public class GameLauncher extends JFrame {
         this.gameModeType = "FLASH";
         this.setSize(400, 450);
         cardLayout.show(mainPanel, CARD_SERVER_INPUT);
-        setTitle("서버 접속 (그림자 모드)");
+        setTitle("서버 접속 (플래시 모드)");
     }
 
     public void switchToMyPage() {

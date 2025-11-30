@@ -69,7 +69,7 @@ public class WaitingRoom extends JPanel {
 
         chatArea.setText("");
         
-        String modeName = "FLASH".equals(gameType) ? "그림자 모드" : "일반 모드";
+        String modeName = "FLASH".equals(gameType) ? "플래시 모드" : "일반 모드";
         chatArea.append("=== [" + roomNumber + "] 번 대기방에 입장했습니다 (" + modeName + ") ===\n");       
     }
 

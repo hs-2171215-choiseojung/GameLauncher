@@ -107,7 +107,7 @@ public class FlashlightGame extends BaseGameGUI {
 
     @Override
     protected String getGameTitle() {
-        return "플래시라이트 모드 - " + playerName;
+        return "플래시 모드 - " + playerName;
     }
 
     @Override
