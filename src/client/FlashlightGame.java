@@ -518,6 +518,13 @@ public class FlashlightGame extends BaseGameGUI {
             } catch (Exception e) {}
         }
         
+        if (txt.equalsIgnoreCase("/Q")) {
+            appendStatus("[알림] 플래시 모드에서는 '/Q'로 힌트를 사용할 수 없습니다. 맵에 있는 힌트 아이템(★)을 획득하세요.\n");
+            chatInput.setText("");
+            requestFocusInWindow();
+            return;
+        }
+        
         if (txt.equalsIgnoreCase("/H")) {
         	showHelpDialog();
         } else {

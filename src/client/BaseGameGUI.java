@@ -43,6 +43,7 @@ public abstract class BaseGameGUI extends JFrame {
     protected int myScore = 0;
     protected int hintsRemaining = 3;
     protected boolean isIntentionalExit = false;
+    protected boolean isGameOver = false;
     
     protected final Color[] PLAYER_COLORS = { Color.BLUE, Color.RED, Color.GREEN, Color.YELLOW, Color.ORANGE };
     protected Map<String, Integer> playerIndexMap = new HashMap<>();
@@ -56,10 +57,28 @@ public abstract class BaseGameGUI extends JFrame {
         this.launcher = launcher;
 
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                handleGameExit();
+            	// 게임이 이미 종료 진행 중이라면 확인 없이 바로 닫기 허용
+                if (isGameOver) {
+                    handleGameExit();
+                    return;
+                }
+
+                // 종료 확인 질문
+                int choice = JOptionPane.showConfirmDialog(
+                        BaseGameGUI.this, 
+                        "게임을 종료하고 나가시겠습니까?", 
+                        "종료 확인", 
+                        JOptionPane.YES_NO_OPTION
+                );
+
+                // 예를 눌렀을 때만 종료 처리
+                if (choice == JOptionPane.YES_OPTION) {
+                    handleGameExit();
+                }
             }
         });
         setLocationRelativeTo(null);
@@ -154,7 +173,7 @@ public abstract class BaseGameGUI extends JFrame {
                 SwingUtilities.invokeLater(() -> handlePacket(p));
             }
         } catch (Exception e) {
-            if (!isIntentionalExit) {
+        	if (!isIntentionalExit && !isGameOver) {
                 SwingUtilities.invokeLater(() -> {
                     if (isVisible()) {
                         appendStatus("[시스템] 서버 연결이 끊어졌습니다.\n");
@@ -258,6 +277,8 @@ public abstract class BaseGameGUI extends JFrame {
 
     protected void handleGameOver(GamePacket p) {
     	isGameActive = false;
+    	isGameOver = true;
+    	
         if (swingTimer != null) swingTimer.stop();
 
         String msg = p.getMessage();
@@ -270,6 +291,8 @@ public abstract class BaseGameGUI extends JFrame {
         }
 
         addExperience(); // 경험치 획득
+        
+        appendStatus("\n2초 뒤 메인 메뉴로 이동합니다...\n");
 
         Timer exitTimer = new Timer(3000, e -> handleGameExit());
         exitTimer.setRepeats(false);

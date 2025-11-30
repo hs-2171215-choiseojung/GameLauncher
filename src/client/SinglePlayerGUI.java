@@ -69,15 +69,6 @@ public class SinglePlayerGUI extends BaseGameGUI {
                 showHelpDialog();
             }
         });
-
-        // ESC - 종료
-        root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "EXIT");
-        root.getActionMap().put("EXIT", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                handleGameExit();
-            }
-        });
     }
 
     private void requestHint() {
