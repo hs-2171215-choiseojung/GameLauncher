@@ -45,13 +45,17 @@ public abstract class BaseGameGUI extends JFrame {
     protected boolean isIntentionalExit = false;
     protected boolean isGameOver = false;
     
+    // 경험치 중복 지급 방지 플래그
+    protected boolean isExpGiven = false;
+    
     protected final Color[] PLAYER_COLORS = { Color.BLUE, Color.RED, Color.GREEN, Color.YELLOW, Color.ORANGE };
     protected Map<String, Integer> playerIndexMap = new HashMap<>();
 
+    // 카운트다운 변수
     protected int countdownValue = 3; 
     protected boolean isCountdownActive = false;
     protected String countdownMessage = "";
-    
+
     public BaseGameGUI(Socket socket, ObjectInputStream in, ObjectOutputStream out,
                        String playerName, GameLauncher launcher) {
         this.socket = socket;
@@ -69,14 +73,12 @@ public abstract class BaseGameGUI extends JFrame {
                     handleGameExit();
                     return;
                 }
-
                 int choice = JOptionPane.showConfirmDialog(
                         BaseGameGUI.this, 
                         "게임을 종료하고 나가시겠습니까?", 
                         "종료 확인", 
                         JOptionPane.YES_NO_OPTION
                 );
-
                 if (choice == JOptionPane.YES_OPTION) {
                     handleGameExit();
                 }
@@ -117,7 +119,7 @@ public abstract class BaseGameGUI extends JFrame {
         topBar.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         JLabel titleLabel = new JLabel(getGameTitle());
         titleLabel.setFont(new Font("맑은 고딕", Font.BOLD, 20));
-        timerLabel = new JLabel("타이머: 120초", SwingConstants.CENTER);
+        timerLabel = new JLabel("타이머: 대기중", SwingConstants.CENTER); 
         timerLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
         roundLabel = new JLabel("라운드 1", SwingConstants.RIGHT);
         roundLabel.setFont(new Font("맑은 고딕", Font.BOLD, 18));
@@ -255,6 +257,7 @@ public abstract class BaseGameGUI extends JFrame {
             currentTeamScore = 0;
             myFoundCount = 0;
             globalFoundCount = 0;
+            isExpGiven = false; 
         } else {
             globalFoundCount = 0; 
         }
@@ -268,17 +271,15 @@ public abstract class BaseGameGUI extends JFrame {
         if (imagePath != null && answers != null && dim != null) {
             totalAnswers = answers.size();
             gameBoardPanel.setRoundData(imagePath, answers, dim);
-            appendStatus("=== 라운드 " + currentRound + " 시작 ===\n");
-            isGameActive = true;
+            appendStatus("=== 라운드 " + currentRound + " 준비 ===\n");
             
             isGameActive = false; 
             runGameStartSequence();
         }
 
         updateScoreDisplay();
-        startCountdownTimer(120);
     }
-
+    
     protected void runGameStartSequence() {
         isCountdownActive = true;
         countdownValue = 3;
@@ -331,7 +332,7 @@ public abstract class BaseGameGUI extends JFrame {
         }
         g2.drawString(countdownMessage, x, y);
     }
-    
+
     protected void handleGameOver(GamePacket p) {
     	isGameActive = false;
     	isGameOver = true;
@@ -347,9 +348,9 @@ public abstract class BaseGameGUI extends JFrame {
             JOptionPane.showMessageDialog(this, msg, "게임 종료", JOptionPane.PLAIN_MESSAGE);
         }
 
-        addExperience(); // 경험치 획득
+        addExperience(); 
         
-        appendStatus("\n2초 뒤 메인 메뉴로 이동합니다...\n");
+        appendStatus("\n3초 뒤 메인 메뉴로 이동합니다...\n");
 
         Timer exitTimer = new Timer(3000, e -> handleGameExit());
         exitTimer.setRepeats(false);
@@ -357,25 +358,22 @@ public abstract class BaseGameGUI extends JFrame {
     }
     
     protected void addExperience() {
+        if (isExpGiven) return;
+        
     	int calcScore = 0;
-
-        // 모드에 따라 경험치 산정 기준 점수 선택
         if ("협동".equals(gameMode)) {
-            // 협동 모드 - 내가 찾은 개수(기여도) * 10점
             calcScore = myFoundCount * 10; 
         } else {
-            // 경쟁/싱글 모드 - 내 점수
             calcScore = myScore;
         }
 
-        // 경험치 계산
         int exp = 50 + (calcScore / 2);
-        
-        // 음수 방지
         if (exp < 0) exp = 0;
 
         UserData.getInstance().addExperience(exp);
         appendStatus("[경험치 획득] " + exp + " EXP\n");
+        
+        isExpGiven = true; 
     }
 
     private JPanel createRankingPanel(String data) {
@@ -407,7 +405,6 @@ public abstract class BaseGameGUI extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(3, 10, 3, 10);
 
-        // 헤더
         gbc.gridy = 0;
         addCell(listPanel, "순위", gbc, 0, true, SwingConstants.CENTER);
         gbc.weightx = 1.0;
@@ -426,11 +423,11 @@ public abstract class BaseGameGUI extends JFrame {
             if (parts.length < 3) continue;
 
             gbc.gridy++;
-            addCell(listPanel, parts[0], gbc, 0, false, SwingConstants.CENTER); // 순위
-            addCell(listPanel, parts[1], gbc, 1, false, SwingConstants.LEFT);   // 이름
-            addCell(listPanel, parts[2], gbc, 2, false, SwingConstants.CENTER); // 개수
+            addCell(listPanel, parts[0], gbc, 0, false, SwingConstants.CENTER); 
+            addCell(listPanel, parts[1], gbc, 1, false, SwingConstants.LEFT);   
+            addCell(listPanel, parts[2], gbc, 2, false, SwingConstants.CENTER); 
             if (!isCoop && parts.length >= 4) {
-                addCell(listPanel, parts[3], gbc, 3, false, SwingConstants.RIGHT); // 점수
+                addCell(listPanel, parts[3], gbc, 3, false, SwingConstants.RIGHT); 
             }
         }
         
@@ -456,17 +453,15 @@ public abstract class BaseGameGUI extends JFrame {
         
         if (correct) {
             int idx = p.getAnswerIndex();
-            // 정답 위치에 마크 표시
             Point center = new Point(0,0);
             if (gameBoardPanel.originalAnswers != null && idx < gameBoardPanel.originalAnswers.size()) {
                 Rectangle r = gameBoardPanel.originalAnswers.get(idx);
                 center = new Point(r.x + r.width/2, r.y + r.height/2);
                 gameBoardPanel.foundStatus[idx] = true;
             }
-            Color markColor = Color.GREEN; // 기본(협동/싱글)
+            Color markColor = Color.GREEN; 
             if ("경쟁".equals(gameMode)) {
                 int pIdx = playerIndexMap.getOrDefault(sender, 0);
-                // 인덱스 안전 범위 체크
                 int colorIdx = Math.max(0, Math.min(pIdx, PLAYER_COLORS.length - 1));
                 markColor = PLAYER_COLORS[colorIdx];
             }
@@ -480,18 +475,17 @@ public abstract class BaseGameGUI extends JFrame {
                 }
             }
         } else {
-            // 오답 표시 (협동이거나 내가 틀렸을 때만)
             if ("협동".equals(gameMode) || playerName.equals(p.getSender())) {
                 gameBoardPanel.addMark(new Point((int)p.getX(), (int)p.getY()), false, null);
             }
         }
-        // 상태창 메시지 출력
         if (p.getMessage() != null && !p.getMessage().isEmpty()) {
             appendStatus(p.getMessage() + "\n");
         }
         updateScoreDisplay();
     }
 
+    // ★ 여기가 수정된 핵심 부분!
     protected void handleCommonScore(GamePacket p) {
         String msg = p.getMessage();
         if (msg == null) return;
@@ -505,8 +499,11 @@ public abstract class BaseGameGUI extends JFrame {
                 String[] lines = msg.split("\n");
                 for (String line : lines) {
                     if (line.contains(playerName)) {
-                        String scoreStr = line.replaceAll("[^0-9-]", "");
-                        if (!scoreStr.isEmpty()) myScore = Integer.parseInt(scoreStr);
+                        String[] parts = line.split(" : ");
+                        if (parts.length > 1) {
+                            String scoreStr = parts[1].replaceAll("[^0-9-]", "");
+                            if (!scoreStr.isEmpty()) myScore = Integer.parseInt(scoreStr);
+                        }
                         break;
                     }
                 }
@@ -565,7 +562,6 @@ public abstract class BaseGameGUI extends JFrame {
 
     protected abstract void updateScoreDisplay();
 
-    // 모든 보드 패널의 기초가 되는 클래스
     protected class BaseGameBoardPanel extends JPanel {
         protected Image backgroundImage;
         protected List<Rectangle> originalAnswers;
@@ -577,7 +573,6 @@ public abstract class BaseGameGUI extends JFrame {
         
         protected Timer blinkTimer;
         protected boolean blinkState = true;
-        protected static final int RADIUS = 20;
 
         public BaseGameBoardPanel() {
             blinkTimer = new Timer(500, e -> {
@@ -593,7 +588,6 @@ public abstract class BaseGameGUI extends JFrame {
             this.foundStatus = new boolean[answers.size()];
             try {
                 backgroundImage = new ImageIcon(path).getImage();
-                // 비율에 맞춰 패널 크기 조정
                 if (backgroundImage.getWidth(null) > 0) {
                     double ratio = (double) dim.height / dim.width;
                     setPreferredSize(new Dimension(500, (int)(500 * ratio)));
@@ -643,15 +637,14 @@ public abstract class BaseGameGUI extends JFrame {
         public int checkHit(double x, double y) {
             if (originalAnswers == null) return -1;
             for (int i = 0; i < originalAnswers.size(); i++) {
-                if (foundStatus[i]) continue; // 이미 찾은 정답은 패스
+                if (foundStatus[i]) continue; 
                 if (originalAnswers.get(i).contains(x, y)) {
-                    return i; // 정답 인덱스 반환
+                    return i; 
                 }
             }
             return -1;
         }
 
-        // 공통 그리기 로직 (이미지, 힌트, 마크)
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
