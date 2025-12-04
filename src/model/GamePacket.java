@@ -13,7 +13,7 @@ public class GamePacket implements Serializable {
     
  // 클라이언트-서버 간 통신에 사용되는 패킷 타입 정의
     public enum Type {
-        JOIN,
+        JOIN, 
         CLICK,
         MESSAGE,
         READY_STATUS,

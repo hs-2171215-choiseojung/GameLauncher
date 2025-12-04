@@ -171,7 +171,7 @@ public class UserData implements Serializable {
     
    
     public void changePassword(String oldPassword, String newPassword) throws Exception {
-        if (!this.passwordHash.equals(hashPassword(oldPassword))) { 
+        if (!this.passwordHash.equals((oldPassword))) { 
             throw new Exception("현재 비밀번호가 일치하지 않습니다.");
         }
         this.passwordHash = hashPassword(newPassword);

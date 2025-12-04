@@ -34,8 +34,9 @@ public class RoomManager {
 
     private boolean[] foundStatus;
     
-   
     private int roundHintCount = 3;
+    
+    private boolean isRoundChanging = false;
 
     // 아이템 관련
     private Timer itemSpawnTimer;
@@ -70,7 +71,7 @@ public class RoomManager {
             return false;
         }
 
-        // 비사용 커서 인덱스 배정 (1~5 중 남은 번호)
+        // 비사용 커서 인덱스 배정
         boolean[] used = new boolean[5];
         for (int idx : cursorIndexMap.values()) {
             if (idx >= 0 && idx < 5) used[idx] = true;
@@ -110,7 +111,6 @@ public class RoomManager {
 
         clients.remove(playerName);
         playerReadyStatus.remove(playerName);
-        //scores.remove(playerName);
         cursorIndexMap.remove(playerName);
 
         if (!clients.isEmpty()) {
@@ -127,31 +127,27 @@ public class RoomManager {
         }
         
         if (gameState.equals("IN_GAME") && clients.size() == 1) {
-            // 남은 플레이어 찾기
             String survivorName = clients.keySet().iterator().next();
             ClientHandler survivor = clients.get(survivorName);
             
             String rankingMsg = getRankingString();
 
-            // 1. 패킷 전송
             survivor.sendPacket(new GamePacket(
                 GamePacket.Type.GAME_OVER,
                 rankingMsg + "\n\n(다른 플레이어가 모두 나가 게임이 종료되었습니다.)"
             ));
             
-            // 2. 중요: 서버 상태 즉시 초기화 (타이머 등 즉시 중단)
             stopItemSpawner();
             gameState = "LOBBY";
             currentRound = 0;
+            isRoundChanging = false; 
             
-            // 3. 남은 사람 준비 상태 해제 및 로비 업데이트
             playerReadyStatus.put(survivorName, false);
             broadcastLobbyUpdate();
             
             return false; 
         }
 
-        // 호스트가 나간 경우 새로운 호스트 지정
         if (playerName.equals(hostName)) {
             hostName = clients.keySet().iterator().next();
             playerReadyStatus.put(hostName, false);
@@ -170,13 +166,12 @@ public class RoomManager {
     // 패킷 처리
     public synchronized void handlePacket(ClientHandler handler, GamePacket packet) throws IOException {
 
-        // 게임 시작 요청
         if (packet.getType() == GamePacket.Type.START_GAME_REQUEST) {
 
             if (!handler.getPlayerName().equals(hostName)) return;
             
             for (ClientHandler h : clients.values()) {
-                h.resetHintCount(); // 3으로 초기화
+                h.resetHintCount(); 
             }
 
             boolean allReady = true;
@@ -199,48 +194,25 @@ public class RoomManager {
             foundStatus = new boolean[total];
 
             gameState = "IN_GAME";
+            isRoundChanging = false; 
 
             scores.clear();
             totalFoundCounts.clear();
             clients.keySet().forEach(p -> {
                 scores.put(p, 0);
-                totalFoundCounts.put(p, 0);  // 초기화
+                totalFoundCounts.put(p, 0);
             });
 
             roundHintCount = 3;
 
-            for (String p : clients.keySet()) {
-                GamePacket start = new GamePacket(
-                    GamePacket.Type.ROUND_START,
-                    currentRound,
-                    gameLogic.getImagePath(currentDifficulty, currentRound),
-                    gameLogic.getOriginalAnswers(currentDifficulty, currentRound),
-                    gameLogic.getOriginalDimension(currentDifficulty, currentRound),
-                    new HashMap<>(cursorIndexMap),
-                    currentGameMode,
-                    gameType
-                );
-
-                start.setCursorIndex(cursorIndexMap.getOrDefault(p, 1));
-                start.setRemainingHints(roundHintCount);
-
-                clients.get(p).sendPacket(start);
-            }
-
-            StringBuilder sb = new StringBuilder();
-            sb.append("[점수]\n");
-            for (String pName : scores.keySet()) {
-                sb.append(pName).append(" : ").append(scores.get(pName)).append("점\n");
-            }
-            broadcast(new GamePacket(GamePacket.Type.SCORE, "SERVER", sb.toString()));
+            proceedToNextRoundDataSend(); 
             
-
             if ("FLASH".equalsIgnoreCase(gameType)) startItemSpawner();
 
             return;
         }
 
-        // IN_GAME
+        // IN GAME
         if (gameState.equals("IN_GAME")) {
 
             switch (packet.getType()) {
@@ -260,10 +232,13 @@ public class RoomManager {
                     break;
 
                 case CLICK:
+
+                	if (isRoundChanging) return;
                     processClick(handler, packet);
                     break;
 
                 case ITEM_PICKUP:
+                    if (isRoundChanging) return;
                     handleItemPickup(handler, packet.getItemId());
                     break;
 
@@ -280,6 +255,7 @@ public class RoomManager {
                     break;
 
                 case HINT_REQUEST:
+                    if (isRoundChanging) return;
                     handleHintRequest(handler);
                     break;
             }
@@ -323,22 +299,16 @@ public class RoomManager {
     public void setFixedGameType(String type) {
         this.fixedGameType = type;
         this.gameType = type;
-        
-        if ("FLASHLIGHT".equals(type)) {
-           
-        }
     }
     
     public String getFixedGameType() {
         return fixedGameType;
     }
 
-    // 아직 찾지 않은 정답 중 하나를 선택하여 힌트로 전달한다.
     private void handleHintRequest(ClientHandler handler) {
         String playerName = handler.getPlayerName();
         boolean isCompetitive = "경쟁".equals(currentGameMode);
 
-        // 1. 힌트 개수 체크 (경쟁: 개인, 협동: 공용)
         int currentHints = isCompetitive ? handler.getPlayerHintCount() : roundHintCount;
 
         if (currentHints <= 0) {
@@ -346,7 +316,6 @@ public class RoomManager {
             return;
         }
 
-        // 2. 미발견 정답 찾기
         List<Rectangle> answers = gameLogic.getOriginalAnswers(currentDifficulty, currentRound);
         List<Integer> unfound = new ArrayList<>();
         if (foundStatus != null) {
@@ -360,19 +329,18 @@ public class RoomManager {
             return;
         }
 
-        // 3. 힌트 좌표 선정 및 차감
         int idx = unfound.get(random.nextInt(unfound.size()));
         Point hintPos = gameLogic.getAnswerCenter(currentDifficulty, currentRound, idx);
 
         if (isCompetitive) {
             handler.decrementHintCount(); 
+            currentHints = handler.getPlayerHintCount();
             int currentScore = scores.getOrDefault(playerName, 0);
             scores.put(playerName, Math.max(0, currentScore - 5));
         } else {
             roundHintCount--;
             currentHints = roundHintCount;
         }
-
        
         GamePacket hintPacket = new GamePacket(
             GamePacket.Type.HINT_RESPONSE,
@@ -388,7 +356,6 @@ public class RoomManager {
         }
     }
 
-    // 정답/오답 판정 → 점수/패널티 적용 → 전체 클라이언트로 결과 동기화
     private void processClick(ClientHandler handler, GamePacket packet) {
         String name = handler.getPlayerName();
         int index = packet.getAnswerIndex();
@@ -408,7 +375,6 @@ public class RoomManager {
             }
         }
 
-        // 2. 점수 계산
         if (correct) {
             if ("협동".equals(currentGameMode)) {
                 for (String p : scores.keySet()) {
@@ -417,7 +383,6 @@ public class RoomManager {
             } else {
                 scores.put(name, scores.get(name) + 10);
             }
-            
             totalFoundCounts.put(name, totalFoundCounts.getOrDefault(name, 0) + 1);
             
         } else if (!alreadyFound) {
@@ -432,7 +397,6 @@ public class RoomManager {
             }
         }
 
-        // 3. 점수판 업데이트 (경쟁 모드일 때)
         StringBuilder sb = new StringBuilder();
         if ("협동".equals(currentGameMode)) {
             int teamScore = scores.isEmpty() ? 0 : scores.values().iterator().next();
@@ -451,7 +415,6 @@ public class RoomManager {
         } else if (alreadyFound) {
             msg = "[알림] 이미 찾은 그림입니다.";
         }
-
       
         GamePacket resultPacket = new GamePacket(
             GamePacket.Type.RESULT,
@@ -479,60 +442,113 @@ public class RoomManager {
         return true;
     }
 
-    // 라운드 종료
     private void handleRoundComplete() {
+    	
+        if (isRoundChanging) return;
 
         if (gameLogic.hasNextRound(currentDifficulty, currentRound)) {
-
-            currentRound++;
-            gameLogic.loadRound(currentDifficulty, currentRound);
+        	
+            isRoundChanging = true;
+            broadcast(new GamePacket(
+                GamePacket.Type.MESSAGE, 
+                "SERVER", 
+                "[서버] 라운드 " + currentRound + " 완료! 3초 후 다음 라운드 시작..."
+            ));
             
-            int totalAnswers = gameLogic.getOriginalAnswers(currentDifficulty, currentRound).size();
-            foundStatus = new boolean[totalAnswers];
-            
-            roundHintCount = 3;
+            System.out.println("[RoomManager] 라운드 " + currentRound + " 종료. 3초 대기 시작.");
 
-            for (String p : clients.keySet()) {
-                GamePacket next = new GamePacket(
-                    GamePacket.Type.ROUND_START,
-                    currentRound,
-                    gameLogic.getImagePath(currentDifficulty, currentRound),
-                    gameLogic.getOriginalAnswers(currentDifficulty, currentRound),
-                    gameLogic.getOriginalDimension(currentDifficulty, currentRound),
-                    new HashMap<>(cursorIndexMap),
-                    currentGameMode,
-                    gameType
-                );
-
-                next.setCursorIndex(cursorIndexMap.getOrDefault(p, 1));
-                next.setRemainingHints(roundHintCount);
-
-                clients.get(p).sendPacket(next);
-            }
+            Timer nextRoundTimer = new Timer();
+            nextRoundTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    proceedToNextRound();
+                }
+            }, 3000); 
 
         } else {
-        	String rankingMsg = getRankingString();
-        	
+            String rankingMsg = getRankingString();
             broadcast(new GamePacket(GamePacket.Type.GAME_OVER, rankingMsg));
+            
             currentRound = 0;
             gameState = "LOBBY";
             roundHintCount = 3;
+            isRoundChanging = false;
 
             stopItemSpawner();
             
             for (String pName : playerReadyStatus.keySet()) {
                 playerReadyStatus.put(pName, false);
             }
-            
             broadcastLobbyUpdate();
         }
+    }
+
+    private synchronized void proceedToNextRound() {
+        currentRound++;
+        System.out.println("[RoomManager] 라운드 " + currentRound + " 로드 및 전송.");
+        
+        gameLogic.loadRound(currentDifficulty, currentRound);
+        
+        int totalAnswers = gameLogic.getOriginalAnswers(currentDifficulty, currentRound).size();
+        foundStatus = new boolean[totalAnswers];
+        
+        roundHintCount = 3;
+        
+        for (ClientHandler h : clients.values()) {
+            h.resetHintCount();
+        }
+
+        proceedToNextRoundDataSend();
+        
+        if ("FLASH".equalsIgnoreCase(gameType)) {
+             stopItemSpawner();
+             startItemSpawner();
+        }
+        
+        isRoundChanging = false;
+    }
+    
+    // 실제 클라이언트에 패킷을 보내는 부분
+    private void proceedToNextRoundDataSend() {
+        for (String p : clients.keySet()) {
+            GamePacket next = new GamePacket(
+                GamePacket.Type.ROUND_START,
+                currentRound,
+                gameLogic.getImagePath(currentDifficulty, currentRound),
+                gameLogic.getOriginalAnswers(currentDifficulty, currentRound),
+                gameLogic.getOriginalDimension(currentDifficulty, currentRound),
+                new HashMap<>(cursorIndexMap),
+                currentGameMode,
+                gameType
+            );
+
+            next.setCursorIndex(cursorIndexMap.getOrDefault(p, 1));
+            next.setRemainingHints(roundHintCount);
+
+            ClientHandler ch = clients.get(p);
+            if (ch != null) {
+                ch.sendPacket(next);
+            }
+        }
+        
+        // 점수판 한번 더 동기화
+        StringBuilder sb = new StringBuilder();
+        if ("협동".equals(currentGameMode)) {
+            int teamScore = scores.isEmpty() ? 0 : scores.values().iterator().next();
+            sb.append("SCORE_COOP:").append(teamScore);
+        } else {
+            sb.append("[점수]\n");
+            for (String pName : scores.keySet()) {
+                sb.append(pName).append(" : ").append(scores.get(pName)).append("점\n");
+            }
+        }
+        broadcast(new GamePacket(GamePacket.Type.SCORE, "SERVER", sb.toString()));
     }
     
     private String getRankingString() {
         StringBuilder sb = new StringBuilder();
         sb.append("RANKING:");
         
-        // 정렬 (점수 -> 개수 내림차순)
         List<String> players = new ArrayList<>(scores.keySet());
         players.sort((p1, p2) -> {
             int s1 = scores.getOrDefault(p1, 0);
@@ -553,7 +569,6 @@ public class RoomManager {
                 displayName = pName;
             }
             
-            // 순위,닉네임,개수,점수 순서로 데이터 구성 (줄바꿈으로 구분)
             sb.append(rank++).append(",")
               .append(displayName).append(",")
               .append(count).append(",")
@@ -562,7 +577,6 @@ public class RoomManager {
         return sb.toString();
     }
 
-    // 아이템 스폰
     private void startItemSpawner() {
         if (itemSpawnTimer != null) itemSpawnTimer.cancel();
 
@@ -582,7 +596,7 @@ public class RoomManager {
         activeItems.clear();
         itemTypes.clear();
     }
-    // 라운드 중 랜덤 아이템 생성 → 전체 클라이언트에게 브로드캐스트
+    
     private void spawnItem() {
         int id = nextItemId++;
 
@@ -606,9 +620,7 @@ public class RoomManager {
         broadcast(new GamePacket(GamePacket.Type.ITEM_SPAWN, id, pos, type));
     }
 
-    // 아이템 획득 처리
     private void handleItemPickup(ClientHandler handler, int itemId) {
-
         if (!activeItems.containsKey(itemId)) return;
 
         String type = itemTypes.get(itemId);
@@ -644,7 +656,6 @@ public class RoomManager {
         }
     }
 
-    // 로비 업데이트
     private void broadcastLobbyUpdate() {
         broadcast(new GamePacket(
             GamePacket.Type.LOBBY_UPDATE,

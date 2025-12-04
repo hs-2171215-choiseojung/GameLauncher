@@ -337,7 +337,7 @@ public class GameLogic {
         }
         return true;
     }
-
+    //정답 판정 로직
     public synchronized boolean checkAnswer(String difficulty, int round, int answerIndex) {
         String key = difficulty + "_" + round;
         List<Rectangle> answers = roundAnswers.get(key);
