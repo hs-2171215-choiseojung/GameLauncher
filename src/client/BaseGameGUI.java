@@ -485,7 +485,6 @@ public abstract class BaseGameGUI extends JFrame {
         updateScoreDisplay();
     }
 
-    // ★ 여기가 수정된 핵심 부분!
     protected void handleCommonScore(GamePacket p) {
         String msg = p.getMessage();
         if (msg == null) return;
